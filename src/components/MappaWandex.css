@@ -1,0 +1,15 @@
+.mappa-wandex {
+  width: 100%;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  overflow: hidden;
+  border-top: 1px solid var(--border-light);
+}
+
+.mappa-wandex .leaflet-popup-content-wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important;
+  border: 1px solid #e8e4de !important;
+}
+
+.mappa-wandex .leaflet-popup-tip-container { display: none !important; }
+.mappa-wandex .leaflet-popup-content { margin: 10px 12px !important; }

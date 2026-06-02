@@ -1,0 +1,330 @@
+/* ─── WRAPPER ───────────────────────────────────── */
+.stats-wrap {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.stats-contenuto {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 28px 80px;
+}
+
+/* ─── HEADER ────────────────────────────────────── */
+.stats-header {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-titolo {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.stats-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ─── RIEPILOGO ─────────────────────────────────── */
+.stats-riepilogo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.riepilogo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.riepilogo-card__num {
+  font-family: var(--font-serif);
+  font-size: 2.4rem;
+  font-weight: 400;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.riepilogo-card__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.riepilogo-card__tot {
+  font-size: 0.7rem;
+  color: var(--text-light);
+}
+
+/* ─── TRACKERS ──────────────────────────────────── */
+.stats-trackers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ─── TRACKER ───────────────────────────────────── */
+.tracker {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.tracker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  gap: 16px;
+  transition: background var(--transition);
+}
+
+.tracker__head:hover { background: var(--bg); }
+
+.tracker__titolo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tracker__icona { font-size: 1.3rem; }
+
+.tracker__titolo {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.tracker__sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.tracker__destra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.tracker__freccia {
+  font-size: 0.55rem;
+  color: var(--text-light);
+}
+
+/* ─── BARRA PROGRESSO ───────────────────────────── */
+.barra-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barra-track {
+  width: 100px;
+  height: 6px;
+  background: var(--border-light);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.barra-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 400ms ease;
+}
+
+.barra-pct {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 30px;
+}
+
+/* ─── CORPO ESPANSO ─────────────────────────────── */
+.tracker__corpo {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+.tracker__search {
+  width: 100%;
+  padding: 8px 12px;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.tracker__search:focus { border-color: var(--accent-mid); }
+
+/* ─── GRUPPO ────────────────────────────────────── */
+.tracker__gruppo {
+  margin-bottom: 16px;
+}
+
+.tracker__gruppo-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tracker__gruppo-count {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-light);
+}
+
+/* ─── GRIGLIA LUOGHI ────────────────────────────── */
+.tracker__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ─── BOTTONE LUOGO ─────────────────────────────── */
+.luogo-btn {
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.77rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.luogo-btn:hover {
+  border-color: var(--accent-mid);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.luogo-btn--visitato {
+  font-weight: 500;
+}
+
+.luogo-btn--auto {
+  cursor: default;
+}
+
+.luogo-btn__cod {
+  font-size: 0.65rem;
+  opacity: 0.6;
+}
+
+.luogo-btn__auto {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+/* ─── NOTA ──────────────────────────────────────── */
+.stats-nota {
+  margin-top: 24px;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  text-align: center;
+}
+
+/* ─── MOBILE ────────────────────────────────────── */
+@media (max-width: 480px) {
+  .stats-contenuto { padding: 20px 16px 60px; }
+  .stats-riepilogo { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .riepilogo-card { padding: 14px 10px; }
+  .riepilogo-card__num { font-size: 1.8rem; }
+  .barra-track { width: 60px; }
+}
+
+/* ─── SELETTORE VISTA TRACKER ───────────────────── */
+.tracker__viste {
+  display: flex;
+  gap: 6px;
+  padding: 12px 0 8px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 10px;
+}
+
+.tracker__vista-btn {
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.77rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.tracker__vista-btn:hover {
+  border-color: var(--accent-mid);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tracker__vista-btn--attiva {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.tracker__vista-btn--attiva:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ─── FILTRO VISITATI ───────────────────────────── */
+.tracker__filtri {
+  display: flex;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.tracker__filtro-btn {
+  padding: 3px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.tracker__filtro-btn:hover {
+  border-color: var(--text-light);
+  color: var(--text);
+}
+
+.tracker__filtro-btn--attivo {
+  font-weight: 600;
+}

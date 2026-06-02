@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Mappa from '../components/Mappa'
 import PannelloTappa from '../components/PannelloTappa'
 import TimelineViaggio from './TimelineViaggio'
+import Statistiche from './Statistiche'
 import viaggi from '../data/viaggi'
 import './Home.css'
 
@@ -15,7 +16,7 @@ function formattaData(stringa) {
 const SEZIONI = [
   { id: 'mappa',         label: 'Mappa',         icona: '◎' },
   { id: 'i-miei-viaggi', label: 'I miei viaggi', icona: '✈', espandibile: true },
-  { id: 'statistiche',   label: 'Statistiche',   icona: '◈' },
+  { id: 'statistiche',   label: 'Collect them all', icona: '◈' },
   { id: 'sfide',         label: 'Sfide',          icona: '◇' },
 ]
 
@@ -184,7 +185,7 @@ function Home() {
             </div>
           </div>
         ) : (
-          <span className="home-header__tag">i tuoi luoghi nel mondo</span>
+          <span className="home-header__tag">Map your world</span>
         )}
       </header>
 
@@ -206,7 +207,9 @@ function Home() {
         )}
 
         {/* ── CONTENUTO CENTRALE ── */}
-        {vistaCorrente === 'timeline' && viaggioAttivo ? (
+        {sezioneAttiva === 'statistiche' ? (
+          <Statistiche />
+        ) : vistaCorrente === 'timeline' && viaggioAttivo ? (
           <TimelineViaggio viaggio={viaggioAttivo} />
         ) : (
           <>
