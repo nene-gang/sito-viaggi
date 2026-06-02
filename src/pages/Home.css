@@ -1,0 +1,285 @@
+/* ─── LAYOUT ────────────────────────────────────── */
+.home {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── HEADER ────────────────────────────────────── */
+.home-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 20px;
+  height: 48px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.home-header__nome {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.home-header__tag {
+  font-size: 0.7rem;
+  color: var(--text-light);
+  letter-spacing: 0.04em;
+}
+
+/* ─── CORPO ─────────────────────────────────────── */
+.home-corpo {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── SIDEBAR ───────────────────────────────────── */
+.home-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar__nav {
+  padding: 8px 0;
+}
+
+/* ─── VOCI NAV ──────────────────────────────────── */
+.sidebar__voce {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition);
+  border-radius: 0;
+}
+
+.sidebar__voce:hover {
+  background: var(--bg);
+}
+
+.sidebar__voce--attiva {
+  background: var(--accent-soft);
+}
+.sidebar__voce--attiva:hover {
+  background: var(--accent-soft);
+}
+
+.sidebar__voce-icona {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sidebar__voce--attiva .sidebar__voce-icona {
+  color: var(--accent);
+}
+
+.sidebar__voce-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+}
+
+.sidebar__voce--attiva .sidebar__voce-label {
+  color: var(--accent);
+}
+
+.sidebar__voce-freccia {
+  font-size: 0.55rem;
+  color: var(--text-light);
+}
+
+/* ─── SUBMENU ───────────────────────────────────── */
+.sidebar__submenu {
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* ─── CARD VIAGGIO ──────────────────────────────── */
+.viaggio-card__testa {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px 8px 42px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  gap: 8px;
+  transition: background var(--transition);
+}
+
+.viaggio-card__testa:hover { background: var(--bg); }
+
+.viaggio-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.viaggio-card__stato {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.viaggio-card__stato--futuro  { color: var(--accent); }
+.viaggio-card__stato--passato { color: var(--text-light); }
+
+.viaggio-card__titolo {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viaggio-card__date {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.viaggio-card__freccia {
+  font-size: 0.55rem;
+  color: var(--text-light);
+  flex-shrink: 0;
+}
+
+/* ─── TAPPE ─────────────────────────────────────── */
+.viaggio-card__tappe {
+  padding: 2px 0;
+}
+
+.tappa-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px 6px 52px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.tappa-item:hover { background: var(--bg); }
+
+.tappa-item--attiva { background: var(--accent-soft); }
+.tappa-item--attiva:hover { background: var(--accent-soft); }
+
+.tappa-item__nome {
+  font-size: 0.8rem;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.tappa-item--attiva .tappa-item__nome {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tappa-item__notti {
+  font-size: 0.68rem;
+  color: var(--text-light);
+  flex-shrink: 0;
+}
+
+/* ─── MAPPA ─────────────────────────────────────── */
+.home-mappa {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── HEADER CONTESTUALE ────────────────────────── */
+.home-header__contesto {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  justify-content: space-between;
+  padding-right: 4px;
+}
+
+.home-header__viaggio-nome {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-header__viste {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ─── BOTTONI VISTA ─────────────────────────────── */
+.vista-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.vista-btn:hover {
+  border-color: var(--accent-mid);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.vista-btn--attiva {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.vista-btn--attiva:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.vista-btn__icona {
+  font-size: 0.75rem;
+}
+
+/* ─── VIAGGIO CARD ATTIVO IN SIDEBAR ────────────── */
+.viaggio-card__testa--attivo {
+  background: var(--accent-soft);
+}
+.viaggio-card__testa--attivo .viaggio-card__titolo {
+  color: var(--accent);
+}
