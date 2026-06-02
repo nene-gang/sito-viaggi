@@ -44,14 +44,13 @@ function Home() {
   }
 
   function selezionaViaggio(viaggio) {
-    // click sul titolo viaggio → attiva il viaggio, mostra vista mappa di default
     setViaggioAttivo(viaggio)
     setVistaCorrente('mappa')
     setTappaSelezionata(null)
     setGiornoSelezionato('info')
     setTuttiGiorni(false)
-    // espande anche la lista tappe
-    setViaggioAperto(viaggio.id)
+    // toggle espansione tappe — se già aperto lo chiude, altrimenti lo apre
+    setViaggioAperto(prev => prev === viaggio.id ? null : viaggio.id)
   }
 
   function apriTappa(tappa) {
@@ -138,7 +137,6 @@ function Home() {
                           className={`viaggio-card__testa${viaggioAttivo?.id === viaggio.id ? ' viaggio-card__testa--attivo' : ''}`}
                           onClick={() => {
                             selezionaViaggio(viaggio)
-                            toggleViaggio(viaggio.id)
                           }}
                         >
                           <div className="viaggio-card__info">
