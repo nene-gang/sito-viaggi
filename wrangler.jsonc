@@ -1,0 +1,11 @@
+{
+  "name": "sito-viaggi-worker",
+  "compatibility_date": "2025-01-01",
+  "d1_databases": [
+    {
+      "binding": "sito_viaggi_db",
+      "database_name": "sito-viaggi-db",
+      "database_id": "e8b00e21-2736-40d9-a95b-0726fbbaa35c"
+    }
+  ]
+}

@@ -53,6 +53,18 @@
   padding: 8px 0;
 }
 
+.sidebar__loading {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #888;
+}
+
+.sidebar__errore {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #e05;
+}
+
 /* ─── VOCI NAV ──────────────────────────────────── */
 .sidebar__voce {
   width: 100%;
@@ -455,4 +467,95 @@
   .tl-contenuto {
     padding: 24px 16px 60px;
   }
+}
+
+.modale-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modale {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  width: 480px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modale__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.modale__titolo {
+  font-size: 15px;
+  font-weight: 600;
+  color: #eee;
+  flex: 1;
+  margin: 0;
+}
+
+.modale__contatore {
+  font-size: 13px;
+  color: #888;
+}
+
+.modale__chiudi {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.modale__chiudi:hover {
+  color: #eee;
+}
+
+.modale__corpo {
+  padding: 12px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checklist__voce {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: #ccc;
+  line-height: 1.4;
+  border-bottom: 1px solid #222;
+}
+
+.checklist__voce:last-child {
+  border-bottom: none;
+}
+
+.checklist__voce input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: #f90;
+}
+
+.checklist__testo--fatto {
+  text-decoration: line-through;
+  color: #555;
 }

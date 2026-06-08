@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Mappa from '../components/Mappa'
 import PannelloTappa from '../components/PannelloTappa'
 import TimelineViaggio from './TimelineViaggio'
 import Statistiche from './Statistiche'
-import viaggi from '../data/viaggi'
+import { fetchViagggi, fetchViaggio, aggiornaChecklist } from '../api/client'
 import './Home.css'
 
 function formattaData(stringa) {
@@ -14,13 +14,14 @@ function formattaData(stringa) {
 }
 
 const SEZIONI = [
-  { id: 'mappa',         label: 'Mappa',         icona: '◎' },
-  { id: 'i-miei-viaggi', label: 'I miei viaggi', icona: '✈', espandibile: true },
+  { id: 'mappa',         label: 'Mappa',           icona: '◎' },
+  { id: 'i-miei-viaggi', label: 'I miei viaggi',   icona: '✈', espandibile: true },
   { id: 'statistiche',   label: 'Collect them all', icona: '◈' },
-  { id: 'sfide',         label: 'Sfide',          icona: '◇' },
+  { id: 'sfide',         label: 'Sfide',            icona: '◇' },
 ]
 
 function Home() {
+  const [modaleChecklist, setModaleChecklist] = useState(false)
   const [sezioneAttiva, setSezioneAttiva]         = useState('mappa')
   const [menuAperto, setMenuAperto]               = useState(null)
   const [viaggioAperto, setViaggioAperto]         = useState(null)
@@ -30,7 +31,21 @@ function Home() {
   const [giornoSelezionato, setGiornoSelezionato] = useState('info')
   const [tuttiGiorni, setTuttiGiorni]             = useState(false)
   const [sidebarCollassata, setSidebarCollassata] = useState(false)
-  const [drawerAperto, setDrawerAperto]           = useState(false) // mobile
+  const [drawerAperto, setDrawerAperto]           = useState(false)
+
+  // Stato per i dati dal Worker
+  const [viaggi, setViagggi]           = useState([])
+  const [loadingLista, setLoadingLista] = useState(true)
+  const [errore, setErrore]            = useState(null)
+  const [loadingDettaglio, setLoadingDettaglio] = useState(false)
+
+  // Carica la lista viaggi all'avvio
+  useEffect(() => {
+    fetchViagggi()
+      .then(data => setViagggi(data))
+      .catch(err => setErrore(err.message))
+      .finally(() => setLoadingLista(false))
+  }, [])
 
   function cliccaSezione(sezione) {
     setSezioneAttiva(sezione.id)
@@ -48,12 +63,65 @@ function Home() {
   }
 
   function selezionaViaggio(viaggio) {
-    setViaggioAttivo(viaggio)
+    if (viaggioAperto === viaggio.id) {
+      setViaggioAperto(null)
+      setViaggioAttivo(null)
+      setTappaSelezionata(null)
+      return
+    }
+
+    setViaggioAperto(viaggio.id)
     setVistaCorrente('mappa')
     setTappaSelezionata(null)
     setGiornoSelezionato('info')
     setTuttiGiorni(false)
-    setViaggioAperto(prev => prev === viaggio.id ? null : viaggio.id)
+
+    // ← QUI non ci deve essere nulla di estraneo
+
+    if (viaggio.tappe) {
+      setViaggioAttivo(viaggio)
+      return
+    }
+
+    setLoadingDettaglio(true)
+    fetchViaggio(viaggio.id)
+      .then(dettaglio => {
+        setViagggi(prev => prev.map(v => v.id === dettaglio.id ? dettaglio : v))
+        setViaggioAttivo(dettaglio)
+      })
+      .catch(err => setErrore(err.message))
+      .finally(() => setLoadingDettaglio(false))
+  }
+
+  function tickChecklist(viaggio, voceId, completata) {
+    // Funzione helper per aggiornare la checklist in un oggetto viaggio
+    function aggiorna(v) {
+      if (v.id !== viaggio.id) return v
+      return {
+        ...v,
+        checklist_partenza: v.checklist_partenza.map(voce =>
+          voce.id === voceId ? { ...voce, completata } : voce
+        )
+      }
+    }
+
+    setViagggi(prev => prev.map(aggiorna))
+    setViaggioAttivo(prev => aggiorna(prev))
+
+    aggiornaChecklist(voceId, completata)
+      .catch(() => {
+        function ripristina(v) {
+          if (v.id !== viaggio.id) return v
+          return {
+            ...v,
+            checklist_partenza: v.checklist_partenza.map(voce =>
+              voce.id === voceId ? { ...voce, completata: !completata } : voce
+            )
+          }
+        }
+        setViagggi(prev => prev.map(ripristina))
+        setViaggioAttivo(prev => ripristina(prev))
+      })
   }
 
   function apriTappa(tappa) {
@@ -62,7 +130,7 @@ function Home() {
     setTuttiGiorni(false)
     setVistaCorrente('mappa')
     setDrawerAperto(false)
-    const v = viaggi.find(v => v.tappe.some(t => t.id === tappa.id))
+    const v = viaggi.find(v => v.tappe?.some(t => t.id === tappa.id))
     if (v) setViaggioAttivo(v)
   }
 
@@ -96,48 +164,61 @@ function Home() {
 
           {!sidebarCollassata && sezione.espandibile && menuAperto === sezione.id && (
             <div className="sidebar__submenu">
-              {viaggi.map(viaggio => (
-                <div key={viaggio.id}>
-                  <button
-                    className={`viaggio-card__testa${viaggioAttivo?.id === viaggio.id ? ' viaggio-card__testa--attivo' : ''}`}
-                    onClick={() => selezionaViaggio(viaggio)}
-                  >
-                    <div className="viaggio-card__info">
-                      <span className={`viaggio-card__stato viaggio-card__stato--${viaggio.stato}`}>
-                        {viaggio.stato === 'futuro' ? 'In programma' : 'Completato'}
+              {loadingLista ? (
+                <p className="sidebar__loading">Caricamento…</p>
+              ) : errore ? (
+                <p className="sidebar__errore">Errore: {errore}</p>
+              ) : (
+                viaggi.map(viaggio => (
+                  <div key={viaggio.id}>
+                    <button
+                      className={`viaggio-card__testa${viaggioAttivo?.id === viaggio.id ? ' viaggio-card__testa--attivo' : ''}`}
+                      onClick={() => selezionaViaggio(viaggio)}
+                    >
+                      <div className="viaggio-card__info">
+                        <span className={`viaggio-card__stato viaggio-card__stato--${viaggio.stato}`}>
+                          {viaggio.stato === 'futuro' ? 'In programma' : 'Completato'}
+                        </span>
+                        <span className="viaggio-card__titolo">{viaggio.titolo}</span>
+                        <span className="viaggio-card__date">
+                          {formattaData(viaggio.data_inizio)} → {formattaData(viaggio.data_fine)}
+                        </span>
+                      </div>
+                      <span className="viaggio-card__freccia">
+                        {viaggioAperto === viaggio.id ? '▲' : '▼'}
                       </span>
-                      <span className="viaggio-card__titolo">{viaggio.titolo}</span>
-                      <span className="viaggio-card__date">
-                        {formattaData(viaggio.data_inizio)} → {formattaData(viaggio.data_fine)}
-                      </span>
-                    </div>
-                    <span className="viaggio-card__freccia">
-                      {viaggioAperto === viaggio.id ? '▲' : '▼'}
-                    </span>
-                  </button>
+                    </button>
 
-                  {viaggioAperto === viaggio.id && (
-                    <div className="viaggio-card__tappe">
-                      {viaggio.tappe.map(tappa => (
-                        <button
-                          key={tappa.id}
-                          className={`tappa-item${tappaSelezionata?.id === tappa.id ? ' tappa-item--attiva' : ''}`}
-                          onClick={() => apriTappa(tappa)}
-                        >
-                          <span className="tappa-item__nome">{tappa.nome}</span>
-                          <span className="tappa-item__notti">{tappa.notti}n</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {viaggioAperto === viaggio.id && (
+                      <div className="viaggio-card__tappe">
+                        {loadingDettaglio ? (
+                          <p className="sidebar__loading">Caricamento…</p>
+                        ) : viaggioAttivo?.tappe ? (
+                          <>
+                            {/* Tappe */}
+                            {viaggioAttivo.tappe.map(tappa => (
+                              <button
+                                key={tappa.id}
+                                className={`tappa-item${tappaSelezionata?.id === tappa.id ? ' tappa-item--attiva' : ''}`}
+                                onClick={() => apriTappa(tappa)}
+                              >
+                                <span className="tappa-item__nome">{tappa.nome}</span>
+                                <span className="tappa-item__notti">{tappa.notti}n</span>
+                              </button>
+                            ))}
+
+                          </>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
       ))}
 
-      {/* bottone collassa — solo desktop */}
       <button
         className="sidebar__collassa"
         onClick={() => setSidebarCollassata(c => !c)}
@@ -151,9 +232,7 @@ function Home() {
   return (
     <div className="home">
 
-      {/* ── HEADER ── */}
       <header className="home-header">
-        {/* hamburger mobile */}
         <button
           className="home-header__hamburger"
           onClick={() => setDrawerAperto(d => !d)}
@@ -167,37 +246,43 @@ function Home() {
         {viaggioAttivo ? (
           <div className="home-header__contesto">
             <span className="home-header__viaggio-nome">{viaggioAttivo.titolo}</span>
-            <div className="home-header__viste">
-              <button
-                className={`vista-btn${vistaCorrente === 'mappa' ? ' vista-btn--attiva' : ''}`}
-                onClick={() => setVistaCorrente('mappa')}
-              >
-                <span className="vista-btn__icona">◎</span>
-                <span className="vista-btn__label">Mappa</span>
-              </button>
-              <button
-                className={`vista-btn${vistaCorrente === 'timeline' ? ' vista-btn--attiva' : ''}`}
-                onClick={() => setVistaCorrente('timeline')}
-              >
-                <span className="vista-btn__icona">☰</span>
-                <span className="vista-btn__label">Timeline</span>
-              </button>
-            </div>
+              <div className="home-header__viste">
+                <button
+                  className={`vista-btn${vistaCorrente === 'mappa' ? ' vista-btn--attiva' : ''}`}
+                  onClick={() => setVistaCorrente('mappa')}
+                >
+                  <span className="vista-btn__icona">◎</span>
+                  <span className="vista-btn__label">Mappa</span>
+                </button>
+                <button
+                  className={`vista-btn${vistaCorrente === 'timeline' ? ' vista-btn--attiva' : ''}`}
+                  onClick={() => setVistaCorrente('timeline')}
+                >
+                  <span className="vista-btn__icona">☰</span>
+                  <span className="vista-btn__label">Timeline</span>
+                </button>
+                {viaggioAttivo?.checklist_partenza?.length > 0 && (
+                  <button
+                    className="vista-btn"
+                    onClick={() => setModaleChecklist(true)}
+                  >
+                    <span className="vista-btn__icona">☑</span>
+                    <span className="vista-btn__label">Checklist</span>
+                  </button>
+                )}
+              </div>
           </div>
         ) : (
           <span className="home-header__tag">Map your world</span>
         )}
       </header>
 
-      {/* ── CORPO ── */}
       <div className="home-corpo">
 
-        {/* ── SIDEBAR DESKTOP ── */}
         <aside className={`home-sidebar${sidebarCollassata ? ' home-sidebar--collassata' : ''}`}>
           {navContent}
         </aside>
 
-        {/* ── DRAWER MOBILE ── */}
         {drawerAperto && (
           <div className="drawer-overlay" onClick={() => setDrawerAperto(false)}>
             <aside className="drawer" onClick={e => e.stopPropagation()}>
@@ -206,7 +291,6 @@ function Home() {
           </div>
         )}
 
-        {/* ── CONTENUTO CENTRALE ── */}
         {sezioneAttiva === 'statistiche' ? (
           <Statistiche />
         ) : vistaCorrente === 'timeline' && viaggioAttivo ? (
@@ -237,6 +321,35 @@ function Home() {
         )}
 
       </div>
+      {/* ── MODALE CHECKLIST ── */}
+      {modaleChecklist && viaggioAttivo && (
+        <div className="modale-overlay" onClick={() => setModaleChecklist(false)}>
+          <div className="modale" onClick={e => e.stopPropagation()}>
+            <div className="modale__head">
+              <h3 className="modale__titolo">Checklist partenza</h3>
+              <span className="modale__contatore">
+                {viaggioAttivo.checklist_partenza.filter(v => v.completata).length}
+                /{viaggioAttivo.checklist_partenza.length}
+              </span>
+              <button className="modale__chiudi" onClick={() => setModaleChecklist(false)}>✕</button>
+            </div>
+            <div className="modale__corpo">
+              {viaggioAttivo.checklist_partenza.map(voce => (
+                <label key={voce.id} className="checklist__voce">
+                  <input
+                    type="checkbox"
+                    checked={!!voce.completata}
+                    onChange={e => tickChecklist(viaggioAttivo, voce.id, e.target.checked)}
+                  />
+                  <span className={voce.completata ? 'checklist__testo--fatto' : ''}>
+                    {voce.testo}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
