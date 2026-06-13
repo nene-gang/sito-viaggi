@@ -16,7 +16,7 @@ function formattaData(stringa) {
 const SEZIONI = [
   { id: 'mappa',         label: 'Mappa',           icona: '◎' },
   { id: 'i-miei-viaggi', label: 'I miei viaggi',   icona: '✈', espandibile: true },
-  { id: 'statistiche',   label: 'Collect them all', icona: '◈' },
+  { id: 'statistiche',   label: "Collect 'em all", icona: '◈' },
   { id: 'sfide',         label: 'Sfide',            icona: '◇' },
 ]
 
