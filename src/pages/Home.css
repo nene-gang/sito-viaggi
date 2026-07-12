@@ -485,9 +485,9 @@
   z-index: 1001;
 }
 .modale {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   width: 480px;
   max-width: 90vw;
   max-height: 80vh;
@@ -500,26 +500,26 @@
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border);
 }
 
 .modale__titolo {
   font-size: 15px;
   font-weight: 600;
-  color: #eee;
+  color: var(--text);
   flex: 1;
   margin: 0;
 }
 
 .modale__contatore {
   font-size: 13px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .modale__chiudi {
   background: none;
   border: none;
-  color: #666;
+  color: var(--text-light);
   font-size: 16px;
   cursor: pointer;
   padding: 4px;
@@ -527,7 +527,7 @@
 }
 
 .modale__chiudi:hover {
-  color: #eee;
+  color: var(--text);
 }
 
 .modale__corpo {
@@ -545,9 +545,9 @@
   padding: 7px 0;
   cursor: pointer;
   font-size: 14px;
-  color: #ccc;
+  color: var(--text);
   line-height: 1.4;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .checklist__voce:last-child {
@@ -557,12 +557,12 @@
 .checklist__voce input[type="checkbox"] {
   margin-top: 2px;
   flex-shrink: 0;
-  accent-color: #f90;
+  accent-color: var(--accent);
 }
 
 .checklist__testo--fatto {
   text-decoration: line-through;
-  color: #555;
+  color: var(--text-light);
 }
 
 /* ─── LAYOUT ────────────────────────────────────── */
