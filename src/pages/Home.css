@@ -1138,9 +1138,9 @@
   margin-bottom: 0.5rem;
   padding: 0.4rem 0.75rem;
   background: transparent;
-  border: 1px dashed var(--accento);
+  border: 1px dashed var(--accent);
   border-radius: 4px;
-  color: var(--accento);
+  color: var(--accent);
   font-size: 0.8rem;
   cursor: pointer;
   text-align: left;
@@ -1148,7 +1148,7 @@
 }
 
 .sidebar__nuovo-viaggio:hover {
-  background: color-mix(in srgb, var(--accento) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* ── TESTA VIAGGIO CON BOTTONE MODIFICA ── */
@@ -1166,8 +1166,8 @@
   padding: 0 0.5rem;
   background: transparent;
   border: none;
-  border-left: 1px solid var(--bordo);
-  color: var(--testo-secondario);
+  border-left: 1px solid var(--border);
+  color: var(--text-muted);
   font-size: 1rem;
   cursor: pointer;
   opacity: 0.5;
@@ -1176,7 +1176,7 @@
 
 .viaggio-card__modifica:hover {
   opacity: 1;
-  color: var(--accento);
+  color: var(--accent);
 }
 
 /* ── MODALE FORM ── */
@@ -1197,7 +1197,7 @@
 .form-viaggio__titolo {
   margin: 0 0 1.25rem;
   font-size: 1.1rem;
-  color: var(--testo);
+  color: var(--text);
 }
 
 .form-viaggio__errore {
@@ -1227,7 +1227,7 @@
   display: block;
   margin-bottom: 0.35rem;
   font-size: 0.8rem;
-  color: var(--testo-secondario);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1242,10 +1242,10 @@
 .form-viaggio__textarea {
   width: 100%;
   padding: 0.45rem 0.6rem;
-  background: var(--sfondo-card);
-  border: 1px solid var(--bordo);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--testo);
+  color: var(--text);
   font-size: 0.9rem;
   box-sizing: border-box;
 }
@@ -1254,7 +1254,7 @@
 .form-viaggio__select:focus,
 .form-viaggio__textarea:focus {
   outline: none;
-  border-color: var(--accento);
+  border-color: var(--accent);
 }
 
 .form-viaggio__textarea {
@@ -1271,8 +1271,8 @@
 
 .form-viaggio__tappa {
   padding: 0.6rem;
-  background: var(--sfondo-card);
-  border: 1px solid var(--bordo);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
 }
 
@@ -1285,7 +1285,7 @@
 
 .form-viaggio__tappa-num {
   font-size: 0.75rem;
-  color: var(--testo-secondario);
+  color: var(--text-muted);
   min-width: 1rem;
 }
 
@@ -1301,16 +1301,16 @@
 .form-viaggio__tappa-azioni button {
   padding: 0.2rem 0.4rem;
   background: transparent;
-  border: 1px solid var(--bordo);
+  border: 1px solid var(--border);
   border-radius: 3px;
-  color: var(--testo-secondario);
+  color: var(--text-muted);
   font-size: 0.8rem;
   cursor: pointer;
 }
 
 .form-viaggio__tappa-azioni button:hover:not(:disabled) {
-  border-color: var(--accento);
-  color: var(--accento);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .form-viaggio__tappa-azioni button:disabled {
@@ -1350,21 +1350,21 @@
 .ricerca-luogo__input {
   flex: 1;
   padding: 0.45rem 0.6rem;
-  background: var(--sfondo-card);
-  border: 1px solid var(--bordo);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--testo);
+  color: var(--text);
   font-size: 0.9rem;
 }
 
 .ricerca-luogo__input:focus {
   outline: none;
-  border-color: var(--accento);
+  border-color: var(--accent);
 }
 
 .ricerca-luogo__btn {
   padding: 0.45rem 0.7rem;
-  background: var(--accento);
+  background: var(--accent);
   border: none;
   border-radius: 4px;
   color: white;
@@ -1381,8 +1381,8 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: var(--sfondo-card);
-  border: 1px solid var(--bordo);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
   list-style: none;
   margin: 0;
@@ -1396,8 +1396,8 @@
   padding: 0.5rem 0.75rem;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--bordo);
-  color: var(--testo);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
   font-size: 0.82rem;
   text-align: left;
   cursor: pointer;
@@ -1408,8 +1408,8 @@
 }
 
 .ricerca-luogo__risultato:hover {
-  background: color-mix(in srgb, var(--accento) 10%, transparent);
-  color: var(--accento);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
 }
 
 /* Bottoni salva/annulla */
@@ -1419,7 +1419,7 @@
   gap: 0.75rem;
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--bordo);
+  border-top: 1px solid var(--border);
 }
 
 .form-viaggio__btn {
@@ -1432,17 +1432,17 @@
 
 .form-viaggio__btn--annulla {
   background: transparent;
-  border: 1px solid var(--bordo);
-  color: var(--testo-secondario);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
 .form-viaggio__btn--annulla:hover {
-  border-color: var(--testo-secondario);
-  color: var(--testo);
+  border-color: var(--text-muted);
+  color: var(--text);
 }
 
 .form-viaggio__btn--salva {
-  background: var(--accento);
+  background: var(--accent);
   color: white;
 }
 

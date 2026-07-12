@@ -261,7 +261,7 @@ function Statistiche() {
 
   if (caricamento) return (
     <div className="stats-wrap">
-      <p style={{ padding: '2rem', color: 'var(--testo-secondario)' }}>Caricamento...</p>
+      <p style={{ padding: '2rem', color: 'var(--text-muted)' }}>Caricamento...</p>
     </div>
   )
 
