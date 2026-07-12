@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
 import { creaViaggio, modificaViaggio } from '../api/client'
-
-const STATI = [
-  { valore: 'futuro',   label: 'In programma' },
-  { valore: 'passato',  label: 'Completato' },
-]
+import { STATI_VIAGGIO } from '../utils/stato'
 
 const TAPPA_VUOTA = { nome: '', lat: '', lng: '', paese_iso: '', ordine: 1 }
 
@@ -79,7 +75,7 @@ function RicercaLuogo({ onSeleziona }) {
 
 function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
   const [titolo,      setTitolo]      = useState(viaggio?.titolo      || '')
-  const [stato,       setStato]       = useState(viaggio?.stato       || 'futuro')
+  const [stato,       setStato]       = useState(viaggio?.stato       || 'bozza')
   const [dataInizio,  setDataInizio]  = useState(viaggio?.data_inizio || '')
   const [dataFine,    setDataFine]    = useState(viaggio?.data_fine   || '')
   const [descrizione, setDescrizione] = useState(viaggio?.descrizione || '')
@@ -167,7 +163,7 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
           value={stato}
           onChange={e => setStato(e.target.value)}
         >
-          {STATI.map(s => (
+          {STATI_VIAGGIO.map(s => (
             <option key={s.valore} value={s.valore}>{s.label}</option>
           ))}
         </select>

@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import './Mappa.css'
 import L from 'leaflet'
-import viaggi from '../data/viaggi'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -29,7 +28,7 @@ function ControlloZoom({ tappaSelezionata, vistaGlobale }) {
   return null
 }
 
-function Mappa({ onTappaClick, tappaSelezionata, vistaGlobale, giornoSelezionato, tuttiGiorni }) {
+function Mappa({ viaggi = [], onTappaClick, tappaSelezionata, vistaGlobale, giornoSelezionato, tuttiGiorni }) {
   const [geoData, setGeoData] = useState(null)
 
   // Mappa ISO → stato del viaggio ('passato' o 'futuro')

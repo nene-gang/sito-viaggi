@@ -156,6 +156,7 @@
   text-transform: uppercase;
 }
 
+.viaggio-card__stato--bozza    { color: var(--text-muted); }
 .viaggio-card__stato--futuro  { color: var(--accent); }
 .viaggio-card__stato--passato { color: var(--text-light); }
 
@@ -723,6 +724,7 @@
   text-transform: uppercase;
 }
 
+.viaggio-card__stato--bozza    { color: var(--text-muted); }
 .viaggio-card__stato--futuro  { color: var(--accent); }
 .viaggio-card__stato--passato { color: var(--text-light); }
 

@@ -8,6 +8,7 @@ import './Home.css'
 import { useNavigate } from 'react-router-dom'
 import FormViaggio from '../components/FormViaggio'
 import { creaViaggio, modificaViaggio, eliminaViaggio } from '../api/client'
+import { etichettaStato } from '../utils/stato'
 
 function formattaData(stringa) {
   if (!stringa) return ''
@@ -231,7 +232,7 @@ function Home() {
                         >
                           <div className="viaggio-card__info">
                             <span className={`viaggio-card__stato viaggio-card__stato--${viaggio.stato}`}>
-                              {viaggio.stato === 'futuro' ? 'In programma' : 'Completato'}
+                              {etichettaStato(viaggio.stato)}
                             </span>
                             <span className="viaggio-card__titolo">{viaggio.titolo}</span>
                             <span className="viaggio-card__date">
@@ -360,6 +361,7 @@ function Home() {
           <>
             <div className="home-mappa">
               <Mappa
+                viaggi={viaggi}
                 onTappaClick={apriTappa}
                 tappaSelezionata={tappaSelezionata}
                 vistaGlobale={sezioneAttiva === 'mappa' && !viaggioAttivo}
