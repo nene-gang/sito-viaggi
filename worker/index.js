@@ -1,6 +1,6 @@
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
@@ -98,7 +98,36 @@ export default {
 
       return json({ ok: true })
     }
+    
+    // GET /api/wandex
+    if (request.method === 'GET' && path === '/api/wandex') {
+      const { results } = await env.sito_viaggi_db.prepare(
+        'SELECT categoria, chiave FROM wandex_voci'
+      ).all()
+      return json(results)
+    }
 
+    // POST /api/wandex  (toggle: inserisce se non esiste, cancella se esiste)
+    if (request.method === 'POST' && path === '/api/wandex') {
+      const { categoria, chiave } = await request.json()
+      if (!categoria || !chiave) return json({ errore: 'Parametri mancanti' }, 400)
+
+      const esistente = await env.sito_viaggi_db.prepare(
+        'SELECT 1 FROM wandex_voci WHERE categoria = ? AND chiave = ?'
+      ).bind(categoria, chiave).first()
+
+      if (esistente) {
+        await env.sito_viaggi_db.prepare(
+          'DELETE FROM wandex_voci WHERE categoria = ? AND chiave = ?'
+        ).bind(categoria, chiave).run()
+      } else {
+        await env.sito_viaggi_db.prepare(
+          'INSERT INTO wandex_voci (categoria, chiave) VALUES (?, ?)'
+        ).bind(categoria, chiave).run()
+      }
+
+      return json({ ok: true })
+    }
     return notFound()
   }
 }

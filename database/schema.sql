@@ -57,3 +57,9 @@ CREATE TABLE IF NOT EXISTS checklist_voci (
   ordine     INTEGER DEFAULT 0,
   FOREIGN KEY (viaggio_id) REFERENCES viaggi(id)
 );
+
+CREATE TABLE IF NOT EXISTS wandex_voci (
+  categoria TEXT NOT NULL,
+  chiave    TEXT NOT NULL,
+  PRIMARY KEY (categoria, chiave)
+);

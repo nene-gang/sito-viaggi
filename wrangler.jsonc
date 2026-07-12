@@ -1,5 +1,6 @@
 {
   "name": "sito-viaggi-worker",
+  "main": "worker/index.js",
   "compatibility_date": "2025-01-01",
   "d1_databases": [
     {

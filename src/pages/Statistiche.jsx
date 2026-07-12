@@ -4,19 +4,8 @@ import viaggi from '../data/viaggi'
 import './Statistiche.css'
 import MappaWandex from '../components/MappaWandex'
 
+const WORKER_URL = 'https://sito-viaggi-worker.elena-gallarate.workers.dev'
 const STORAGE_KEY = 'atlas_statistiche'
-
-function caricaDati() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { province: [], capitali_eu: [], capitali_mondo: [] }
-    return JSON.parse(raw)
-  } catch { return { province: [], capitali_eu: [], capitali_mondo: [] } }
-}
-
-function salvaDati(dati) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(dati))
-}
 
 // Ricava capitali visitate automaticamente dai viaggi
 function capitaliDaiViaggi() {
@@ -57,13 +46,12 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
   const [espanso, setEspanso] = useState(false)
   const [filtro, setFiltro] = useState('')
   const [vista, setVista] = useState('lista')
-  const [filtroVisita, setFiltroVisita] = useState('tutti') // 'tutti' | 'visitati' | 'da-visitare'
+  const [filtroVisita, setFiltroVisita] = useState('tutti')
 
   const tuttiVisitati = new Set([...visitatiManuali, ...visitatiAuto])
   const count = tuttiVisitati.size
   const totale = items.length
 
-  // Raggruppa per regione/continente se richiesto
   const gruppi = raggruppaPer
     ? [...new Set(items.map(i => i[raggruppaPer]))].sort()
     : null
@@ -95,8 +83,6 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
 
       {espanso && (
         <div className="tracker__corpo">
-
-          {/* selettore vista */}
           <div className="tracker__viste">
             <button
               className={`tracker__vista-btn${vista === 'lista' ? ' tracker__vista-btn--attiva' : ''}`}
@@ -108,7 +94,6 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
             >◎ Mappa</button>
           </div>
 
-          {/* filtro visitati */}
           <div className="tracker__filtri">
             {['tutti', 'visitati', 'da-visitare'].map(f => (
               <button
@@ -207,26 +192,78 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
 }
 
 function Statistiche() {
-  const [dati, setDati] = useState(caricaDati)
+  const [dati, setDati] = useState({ province: [], capitali_eu: [], capitali_mondo: [] })
+  const [caricamento, setCaricamento] = useState(true)
   const autoCapitali = capitaliDaiViaggi()
 
-  function toggle(categoria, key) {
+  useEffect(() => {
+    async function inizializza() {
+      // 1. Migrazione da localStorage, se ci sono dati vecchi
+      const vecchiDati = localStorage.getItem(STORAGE_KEY)
+      if (vecchiDati) {
+        const parsed = JSON.parse(vecchiDati)
+        const voci = []
+        for (const [categoria, chiavi] of Object.entries(parsed)) {
+          for (const chiave of chiavi) {
+            voci.push({ categoria, chiave })
+          }
+        }
+        await Promise.all(
+          voci.map(v =>
+            fetch(`${WORKER_URL}/api/wandex`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(v),
+            })
+          )
+        )
+        localStorage.removeItem(STORAGE_KEY)
+      }
+
+      // 2. Carica dal worker
+      const res = await fetch(`${WORKER_URL}/api/wandex`)
+      const righe = await res.json()
+
+      // 3. Converte in struttura usata dal componente
+      const risultato = { province: [], capitali_eu: [], capitali_mondo: [] }
+      for (const { categoria, chiave } of righe) {
+        if (risultato[categoria]) risultato[categoria].push(chiave)
+      }
+      setDati(risultato)
+      setCaricamento(false)
+    }
+
+    inizializza()
+  }, [])
+
+  async function toggle(categoria, key) {
+    // Aggiornamento ottimistico: aggiorna subito la UI senza aspettare il server
     setDati(prev => {
       const lista = prev[categoria] || []
       const nuova = lista.includes(key)
         ? lista.filter(k => k !== key)
         : [...lista, key]
-      const aggiornato = { ...prev, [categoria]: nuova }
-      salvaDati(aggiornato)
-      return aggiornato
+      return { ...prev, [categoria]: nuova }
+    })
+
+    // Poi sincronizza col worker in background
+    await fetch(`${WORKER_URL}/api/wandex`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ categoria, chiave: key }),
     })
   }
 
-  // Totali globali
   const totProvince = new Set([...dati.province]).size
   const totCapEu    = new Set([...dati.capitali_eu, ...autoCapitali].filter(c =>
     CAPITALI_EU.some(x => x.nome === c))).size
   const totCapMondo = new Set([...dati.capitali_mondo, ...autoCapitali]).size
+
+  if (caricamento) return (
+    <div className="stats-wrap">
+      <p style={{ padding: '2rem', color: 'var(--testo-secondario)' }}>Caricamento...</p>
+    </div>
+  )
 
   return (
     <div className="stats-wrap">
@@ -237,7 +274,6 @@ function Statistiche() {
           <p className="stats-sub">Il tuo Pokédex dei viaggi — colleziona città, province e capitali del mondo</p>
         </div>
 
-        {/* riepilogo globale */}
         <div className="stats-riepilogo">
           <div className="riepilogo-card">
             <div className="riepilogo-card__num" style={{ color: '#b5451b' }}>{totProvince}</div>
@@ -256,7 +292,6 @@ function Statistiche() {
           </div>
         </div>
 
-        {/* tracker */}
         <div className="stats-trackers">
           <Tracker
             titolo="Province italiane"
