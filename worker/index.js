@@ -1,6 +1,6 @@
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
@@ -125,6 +125,88 @@ export default {
           'INSERT INTO wandex_voci (categoria, chiave) VALUES (?, ?)'
         ).bind(categoria, chiave).run()
       }
+
+      return json({ ok: true })
+    }
+
+        // POST /api/viaggi — crea nuovo viaggio
+    if (request.method === 'POST' && path === '/api/viaggi') {
+      const body = await request.json()
+      const { titolo, stato, data_inizio, data_fine, descrizione, tappe = [] } = body
+
+      // Inserisce il viaggio e recupera l'id generato
+      const risultato = await env.sito_viaggi_db.prepare(
+        'INSERT INTO viaggi (titolo, stato, data_inizio, data_fine, descrizione) VALUES (?, ?, ?, ?, ?)'
+      ).bind(titolo, stato, data_inizio || null, data_fine || null, descrizione || null).run()
+
+      const nuovoId = risultato.meta.last_row_id
+
+      // Inserisce le tappe
+      for (const tappa of tappe) {
+        await env.sito_viaggi_db.prepare(
+          'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, hotel, stazione) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(nuovoId, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, '{}', '{}').run()
+      }
+
+      return json({ ok: true, id: nuovoId })
+    }
+
+    // PUT /api/viaggi/:id — modifica viaggio esistente
+    if (request.method === 'PUT' && path.startsWith('/api/viaggi/')) {
+      const id = path.split('/')[3]
+      if (!id) return notFound()
+
+      const body = await request.json()
+      const { titolo, stato, data_inizio, data_fine, descrizione, tappe = [] } = body
+
+      // Aggiorna i dati del viaggio
+      await env.sito_viaggi_db.prepare(
+        'UPDATE viaggi SET titolo = ?, stato = ?, data_inizio = ?, data_fine = ?, descrizione = ? WHERE id = ?'
+      ).bind(titolo, stato, data_inizio || null, data_fine || null, descrizione || null, id).run()
+
+      // Riconcilia le tappe: delete + reinsert
+      await env.sito_viaggi_db.prepare(
+        'DELETE FROM tappe WHERE viaggio_id = ?'
+      ).bind(id).run()
+
+      for (const tappa of tappe) {
+        await env.sito_viaggi_db.prepare(
+          'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, hotel, stazione) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(id, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, '{}', '{}').run()
+      }
+
+      return json({ ok: true })
+    }
+
+    // DELETE /api/viaggi/:id — elimina viaggio e tutto il suo contenuto
+    if (request.method === 'DELETE' && path.startsWith('/api/viaggi/')) {
+      const id = path.split('/')[3]
+      if (!id) return notFound()
+
+      // Elimina in ordine: prima i figli, poi il genitore
+      const { results: tappeIds } = await env.sito_viaggi_db.prepare(
+        'SELECT id FROM tappe WHERE viaggio_id = ?'
+      ).bind(id).all()
+
+      for (const tappa of tappeIds) {
+        const { results: giorniIds } = await env.sito_viaggi_db.prepare(
+          'SELECT id FROM giorni WHERE tappa_id = ?'
+        ).bind(tappa.id).all()
+
+        for (const giorno of giorniIds) {
+          await env.sito_viaggi_db.prepare(
+            'DELETE FROM attivita WHERE giorno_id = ?'
+          ).bind(giorno.id).run()
+        }
+
+        await env.sito_viaggi_db.prepare(
+          'DELETE FROM giorni WHERE tappa_id = ?'
+        ).bind(tappa.id).run()
+      }
+
+      await env.sito_viaggi_db.prepare('DELETE FROM tappe WHERE viaggio_id = ?').bind(id).run()
+      await env.sito_viaggi_db.prepare('DELETE FROM checklist_voci WHERE viaggio_id = ?').bind(id).run()
+      await env.sito_viaggi_db.prepare('DELETE FROM viaggi WHERE id = ?').bind(id).run()
 
       return json({ ok: true })
     }
