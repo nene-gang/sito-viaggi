@@ -660,4 +660,225 @@
   letter-spacing: 0.05em;
 }
 
-.form-viaggio
+.form-viaggio__label--small {
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.form-viaggio__input,
+.form-viaggio__select,
+.form-viaggio__textarea {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  background: var(--sfondo-card);
+  border: 1px solid var(--bordo);
+  border-radius: 4px;
+  color: var(--testo);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.form-viaggio__input:focus,
+.form-viaggio__select:focus,
+.form-viaggio__textarea:focus {
+  outline: none;
+  border-color: var(--accento);
+}
+
+.form-viaggio__textarea {
+  resize: vertical;
+}
+
+/* Tappe */
+.form-viaggio__tappe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.form-viaggio__tappa {
+  padding: 0.6rem;
+  background: var(--sfondo-card);
+  border: 1px solid var(--bordo);
+  border-radius: 4px;
+}
+
+.form-viaggio__tappa-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.form-viaggio__tappa-num {
+  font-size: 0.75rem;
+  color: var(--testo-secondario);
+  min-width: 1rem;
+}
+
+.form-viaggio__input--nome {
+  flex: 1;
+}
+
+.form-viaggio__tappa-azioni {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.form-viaggio__tappa-azioni button {
+  padding: 0.2rem 0.4rem;
+  background: transparent;
+  border: 1px solid var(--bordo);
+  border-radius: 3px;
+  color: var(--testo-secondario);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.form-viaggio__tappa-azioni button:hover:not(:disabled) {
+  border-color: var(--accento);
+  color: var(--accento);
+}
+
+.form-viaggio__tappa-azioni button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.form-viaggio__tappa-rimuovi:hover:not(:disabled) {
+  border-color: #ff4444 !important;
+  color: #ff4444 !important;
+}
+
+.form-viaggio__tappa-coords {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.form-viaggio__input--coord {
+  flex: 1;
+}
+
+.form-viaggio__input--iso {
+  width: 70px;
+  flex: none;
+}
+
+/* Ricerca luogo */
+.ricerca-luogo {
+  position: relative;
+}
+
+.ricerca-luogo__riga {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.ricerca-luogo__input {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  background: var(--sfondo-card);
+  border: 1px solid var(--bordo);
+  border-radius: 4px;
+  color: var(--testo);
+  font-size: 0.9rem;
+}
+
+.ricerca-luogo__input:focus {
+  outline: none;
+  border-color: var(--accento);
+}
+
+.ricerca-luogo__btn {
+  padding: 0.45rem 0.7rem;
+  background: var(--accento);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.ricerca-luogo__btn:disabled {
+  opacity: 0.5;
+}
+
+.ricerca-luogo__risultati {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--sfondo-card);
+  border: 1px solid var(--bordo);
+  border-radius: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.ricerca-luogo__risultato {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--bordo);
+  color: var(--testo);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ricerca-luogo__risultato:last-child {
+  border-bottom: none;
+}
+
+.ricerca-luogo__risultato:hover {
+  background: color-mix(in srgb, var(--accento) 10%, transparent);
+  color: var(--accento);
+}
+
+/* Bottoni salva/annulla */
+.form-viaggio__bottoni {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bordo);
+}
+
+.form-viaggio__btn {
+  padding: 0.5rem 1.25rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+}
+
+.form-viaggio__btn--annulla {
+  background: transparent;
+  border: 1px solid var(--bordo);
+  color: var(--testo-secondario);
+}
+
+.form-viaggio__btn--annulla:hover {
+  border-color: var(--testo-secondario);
+  color: var(--testo);
+}
+
+.form-viaggio__btn--salva {
+  background: var(--accento);
+  color: white;
+}
+
+.form-viaggio__btn--salva:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.form-viaggio__btn--salva:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
