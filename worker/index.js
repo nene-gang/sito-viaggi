@@ -164,15 +164,52 @@ export default {
         'UPDATE viaggi SET titolo = ?, stato = ?, data_inizio = ?, data_fine = ?, descrizione = ? WHERE id = ?'
       ).bind(titolo, stato, data_inizio || null, data_fine || null, descrizione || null, id).run()
 
-      // Riconcilia le tappe: delete + reinsert
-      await env.sito_viaggi_db.prepare(
-        'DELETE FROM tappe WHERE viaggio_id = ?'
-      ).bind(id).run()
+      // Riconciliazione intelligente delle tappe
+      // 1. Recupera gli id delle tappe esistenti nel DB
+      const { results: tappeEsistenti } = await env.sito_viaggi_db.prepare(
+        'SELECT id FROM tappe WHERE viaggio_id = ?'
+      ).bind(id).all()
 
+      const idEsistenti = new Set(tappeEsistenti.map(t => t.id))
+      const idArrivo    = new Set(tappe.filter(t => t.id).map(t => t.id))
+
+      // 2. Cancella le tappe che non sono più nel body
+      for (const idEx of idEsistenti) {
+        if (!idArrivo.has(idEx)) {
+          // Cancella a cascata giorni e attività di questa tappa
+          const { results: giorni } = await env.sito_viaggi_db.prepare(
+            'SELECT id FROM giorni WHERE tappa_id = ?'
+          ).bind(idEx).all()
+
+          for (const g of giorni) {
+            await env.sito_viaggi_db.prepare(
+              'DELETE FROM attivita WHERE giorno_id = ?'
+            ).bind(g.id).run()
+          }
+
+          await env.sito_viaggi_db.prepare(
+            'DELETE FROM giorni WHERE tappa_id = ?'
+          ).bind(idEx).run()
+
+          await env.sito_viaggi_db.prepare(
+            'DELETE FROM tappe WHERE id = ?'
+          ).bind(idEx).run()
+        }
+      }
+
+      // 3. Aggiorna le tappe esistenti, inserisce le nuove
       for (const tappa of tappe) {
-        await env.sito_viaggi_db.prepare(
-          'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, hotel, stazione) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(id, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, '{}', '{}').run()
+        if (tappa.id && idEsistenti.has(tappa.id)) {
+          // Tappa esistente → UPDATE (preserva giorni e attività)
+          await env.sito_viaggi_db.prepare(
+            'UPDATE tappe SET nome = ?, lat = ?, lng = ?, paese_iso = ?, ordine = ? WHERE id = ?'
+          ).bind(tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, tappa.id).run()
+        } else {
+          // Tappa nuova → INSERT
+          await env.sito_viaggi_db.prepare(
+            'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, hotel, stazione) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+          ).bind(id, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, '{}', '{}').run()
+        }
       }
 
       return json({ ok: true })
