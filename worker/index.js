@@ -254,6 +254,34 @@ export default {
 
       return json({ ok: true })
     }
+    // PUT /api/tappe/:id — aggiornamento leggero di una singola tappa
+    // (usato dal drawer laterale, per non dover rimandare l'intero viaggio)
+    if (request.method === 'PUT' && path.startsWith('/api/tappe/')) {
+      const id = path.split('/')[3]
+      if (!id) return notFound()
+
+      const body = await request.json()
+      const campiAggiornabili = ['nome', 'lat', 'lng', 'paese_iso', 'ordine', 'notti', 'data_arrivo', 'data_partenza', 'hotel']
+
+      const set = []
+      const valori = []
+      for (const campo of campiAggiornabili) {
+        if (campo in body) {
+          set.push(`${campo} = ?`)
+          valori.push(campo === 'hotel' ? JSON.stringify(body.hotel || {}) : body[campo])
+        }
+      }
+
+      if (set.length === 0) return json({ ok: true }) // niente da aggiornare
+
+      valori.push(id)
+      await env.sito_viaggi_db.prepare(
+        `UPDATE tappe SET ${set.join(', ')} WHERE id = ?`
+      ).bind(...valori).run()
+
+      return json({ ok: true })
+    }
+
     return notFound()
   }
 }

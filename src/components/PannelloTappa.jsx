@@ -1,12 +1,34 @@
+import { useState } from 'react'
 import './PannelloTappa.css'
+import AlloggioTappa from './AlloggioTappa'
 
-function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tuttiGiorni, onTuttiGiorni }) {
+function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tuttiGiorni, onTuttiGiorni, onSalvaHotel }) {
+  const [salvandoHotel, setSalvandoHotel] = useState(false)
+  const [erroreHotel, setErroreHotel]     = useState(null)
+  const [modificaHotel, setModificaHotel] = useState(false)
+  const [bozzaHotel, setBozzaHotel]       = useState(null)
+
   const haGiorni = tappa.giorni && tappa.giorni.length > 0
   const giorno = haGiorni ? tappa.giorni[giornoSelezionato] : null
   const avvisiGiorno = giorno ? giorno.attivita.filter(a => a.avviso) : []
 
   const hotel = tappa.hotel
   const haHotel = hotel && hotel.nome
+
+  function iniziaModificaHotel() {
+    setBozzaHotel(hotel || {})
+    setErroreHotel(null)
+    setModificaHotel(true)
+  }
+
+  function fineModificaHotel() {
+    setErroreHotel(null)
+    setSalvandoHotel(true)
+    Promise.resolve(onSalvaHotel(tappa.id, bozzaHotel))
+      .then(() => setModificaHotel(false))
+      .catch(err => setErroreHotel(err.message))
+      .finally(() => setSalvandoHotel(false))
+  }
 
   return (
     <aside className="pannello">
@@ -71,9 +93,29 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
         {giornoSelezionato === 'info' && (
           <>
             {/* Hotel */}
-            {haHotel ? (
+            {modificaHotel ? (
               <div>
                 <div className="pannello__sezione-label">🏨 Hotel</div>
+                <AlloggioTappa
+                  hotel={bozzaHotel || {}}
+                  onCambia={setBozzaHotel}
+                  apertoDiDefault
+                />
+                {erroreHotel && <p className="pannello__errore">{erroreHotel}</p>}
+                <button
+                  className="pannello__hotel-fine"
+                  onClick={fineModificaHotel}
+                  disabled={salvandoHotel}
+                >
+                  {salvandoHotel ? 'Salvataggio...' : 'Fatto'}
+                </button>
+              </div>
+            ) : haHotel ? (
+              <div>
+                <div className="pannello__sezione-label pannello__sezione-label--con-azione">
+                  <span>🏨 Hotel</span>
+                  <button className="pannello__modifica-btn" onClick={iniziaModificaHotel}>✎ Modifica</button>
+                </div>
                 <div className="info-card">
                   <div className="info-card__nome">{hotel.nome}</div>
                   {hotel.indirizzo && (
@@ -123,6 +165,7 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
               <div className="pannello__vuoto">
                 <span className="pannello__vuoto-icona">🏨</span>
                 <p>Nessun hotel inserito.</p>
+                <button className="pannello__modifica-btn" onClick={iniziaModificaHotel}>+ Aggiungi alloggio</button>
               </div>
             )}
 

@@ -48,3 +48,13 @@ export async function eliminaViaggio(id) {
   if (!res.ok) throw new Error(`Errore ${res.status}`)
   return res.json()
 }
+
+export async function aggiornaTappa(id, dati) {
+  const res = await fetch(`${BASE_URL}/api/tappe/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dati),
+  })
+  if (!res.ok) throw new Error(`Errore ${res.status}`)
+  return res.json()
+}

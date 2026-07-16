@@ -3,7 +3,7 @@ import Mappa from '../components/Mappa'
 import PannelloTappa from '../components/PannelloTappa'
 import TimelineViaggio from './TimelineViaggio'
 import Statistiche from './Statistiche'
-import { fetchViagggi, fetchViaggio, aggiornaChecklist } from '../api/client'
+import { fetchViagggi, fetchViaggio, aggiornaChecklist, aggiornaTappa } from '../api/client'
 import './Home.css'
 import { useNavigate } from 'react-router-dom'
 import FormViaggio from '../components/FormViaggio'
@@ -101,6 +101,28 @@ function Home() {
       })
       .catch(err => setErrore(err.message))
       .finally(() => setLoadingDettaglio(false))
+  }
+
+  function salvaHotelTappa(tappaId, hotel) {
+    const hotelPrecedente = tappaSelezionata?.hotel
+
+    function applica(nuovoHotel) {
+      return function aggiorna(v) {
+        if (!v?.tappe) return v
+        return { ...v, tappe: v.tappe.map(t => t.id === tappaId ? { ...t, hotel: nuovoHotel } : t) }
+      }
+    }
+
+    setViagggi(prev => prev.map(applica(hotel)))
+    setViaggioAttivo(prev => applica(hotel)(prev))
+    setTappaSelezionata(prev => prev?.id === tappaId ? { ...prev, hotel } : prev)
+
+    return aggiornaTappa(tappaId, { hotel }).catch(err => {
+      setViagggi(prev => prev.map(applica(hotelPrecedente)))
+      setViaggioAttivo(prev => applica(hotelPrecedente)(prev))
+      setTappaSelezionata(prev => prev?.id === tappaId ? { ...prev, hotel: hotelPrecedente } : prev)
+      throw err
+    })
   }
 
   function tickChecklist(viaggio, voceId, completata) {
@@ -396,6 +418,7 @@ function Home() {
                 onChiudi={chiudiTappa}
                 tuttiGiorni={tuttiGiorni}
                 onTuttiGiorni={() => setTuttiGiorni(t => !t)}
+                onSalvaHotel={salvaHotelTappa}
               />
             )}
           </>
