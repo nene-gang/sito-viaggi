@@ -152,8 +152,8 @@ export default {
       // Inserisce le tappe
       for (const tappa of tappe) {
         await env.sito_viaggi_db.prepare(
-          'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, hotel, stazione) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(nuovoId, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, '{}', '{}').run()
+          'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, notti, data_arrivo, data_partenza, hotel, stazione) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(nuovoId, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null, '{}', '{}').run()
       }
 
       return json({ ok: true, id: nuovoId })
@@ -210,13 +210,13 @@ export default {
         if (tappa.id && idEsistenti.has(tappa.id)) {
           // Tappa esistente → UPDATE (preserva giorni e attività)
           await env.sito_viaggi_db.prepare(
-            'UPDATE tappe SET nome = ?, lat = ?, lng = ?, paese_iso = ?, ordine = ? WHERE id = ?'
-          ).bind(tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, tappa.id).run()
+            'UPDATE tappe SET nome = ?, lat = ?, lng = ?, paese_iso = ?, ordine = ?, notti = ?, data_arrivo = ?, data_partenza = ? WHERE id = ?'
+          ).bind(tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null, tappa.id).run()
         } else {
           // Tappa nuova → INSERT
           await env.sito_viaggi_db.prepare(
-            'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, hotel, stazione) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-          ).bind(id, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, '{}', '{}').run()
+            'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, notti, data_arrivo, data_partenza, hotel, stazione) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+          ).bind(id, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null, '{}', '{}').run()
         }
       }
 

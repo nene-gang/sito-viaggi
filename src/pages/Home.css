@@ -1334,9 +1334,66 @@
   flex: 1;
 }
 
+.form-viaggio__input--bloccato {
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .form-viaggio__input--iso {
   width: 70px;
   flex: none;
+}
+
+.form-viaggio__tappa-date {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.form-viaggio__tappa-campo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.form-viaggio__scarto {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.form-viaggio__scarto--buco {
+  color: #b58900;
+}
+
+.form-viaggio__scarto--sovrapposizione {
+  color: #c0392b;
+}
+
+.form-viaggio__propaga-btn {
+  flex: none;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.form-viaggio__propaga-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.form-viaggio__propaga-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Ricerca luogo */

@@ -2,7 +2,30 @@ import { useState, useEffect } from 'react'
 import { creaViaggio, modificaViaggio } from '../api/client'
 import { STATI_VIAGGIO } from '../utils/stato'
 
-const TAPPA_VUOTA = { nome: '', lat: '', lng: '', paese_iso: '', ordine: 1 }
+const TAPPA_VUOTA = { nome: '', lat: '', lng: '', paese_iso: '', ordine: 1, data_arrivo: '', data_partenza: '', notti: '' }
+
+// Calcola le notti tra due date (YYYY-MM-DD). Torna '' se mancano dati o l'intervallo non è valido.
+function calcolaNotti(arrivo, partenza) {
+  if (!arrivo || !partenza) return ''
+  const diff = Math.round((new Date(partenza) - new Date(arrivo)) / 86400000)
+  return diff >= 0 ? diff : ''
+}
+
+// Somma un numero di notti a una data (YYYY-MM-DD), tornando la nuova data nello stesso formato.
+function sommaGiorni(data, notti) {
+  if (!data || notti === '' || notti === null || isNaN(notti)) return ''
+  const d = new Date(data)
+  d.setDate(d.getDate() + Number(notti))
+  return d.toISOString().slice(0, 10)
+}
+
+// Confronta la partenza di una tappa con l'arrivo della successiva.
+// Torna un numero di giorni: positivo = buco, negativo = sovrapposizione, null = nessuna incongruenza (o dati mancanti).
+function calcolaScarto(precedente, attuale) {
+  if (!precedente?.data_partenza || !attuale?.data_arrivo) return null
+  const diff = Math.round((new Date(attuale.data_arrivo) - new Date(precedente.data_partenza)) / 86400000)
+  return diff === 0 ? null : diff
+}
 
 function RicercaLuogo({ onSeleziona }) {
   const [query, setQuery]       = useState('')
@@ -86,18 +109,77 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
   const [errore,      setErrore]      = useState(null)
 
   function aggiungiTappa(datiLuogo) {
-    setTappe(prev => [
-      ...prev,
-      {
-        ...TAPPA_VUOTA,
-        ...datiLuogo,
-        ordine: prev.length + 1,
-      }
-    ])
+    setTappe(prev => {
+      const precedente = prev[prev.length - 1]
+      // Precompila l'arrivo: dall'inizio del viaggio per la prima tappa,
+      // dalla partenza della tappa precedente per le successive.
+      const dataArrivo = precedente?.data_partenza || (prev.length === 0 ? dataInizio : '')
+      return [
+        ...prev,
+        {
+          ...TAPPA_VUOTA,
+          ...datiLuogo,
+          ordine: prev.length + 1,
+          data_arrivo: dataArrivo,
+        }
+      ]
+    })
   }
 
   function aggiornaTappa(indice, campo, valore) {
     setTappe(prev => prev.map((t, i) => i === indice ? { ...t, [campo]: valore } : t))
+  }
+
+  // Aggiorna arrivo/notti/partenza di una tappa, ricalcolando il campo
+  // dipendente: arrivo+notti → partenza, arrivo+partenza → notti, notti (con arrivo già noto) → partenza.
+  function aggiornaDate(indice, campo, valore) {
+    setTappe(prev => prev.map((t, i) => {
+      if (i !== indice) return t
+      const nuova = { ...t, [campo]: valore }
+
+      if (campo === 'data_arrivo') {
+        if (nuova.notti !== '') {
+          nuova.data_partenza = sommaGiorni(nuova.data_arrivo, nuova.notti)
+        } else if (nuova.data_partenza) {
+          nuova.notti = calcolaNotti(nuova.data_arrivo, nuova.data_partenza)
+        }
+      } else if (campo === 'data_partenza') {
+        nuova.notti = calcolaNotti(nuova.data_arrivo, nuova.data_partenza)
+      } else if (campo === 'notti') {
+        if (nuova.data_arrivo) {
+          nuova.data_partenza = sommaGiorni(nuova.data_arrivo, nuova.notti)
+        }
+      }
+
+      return nuova
+    }))
+  }
+
+  // Propaga la partenza della tappa `indice` come arrivo di tutte le successive,
+  // a catena, preservando le notti già impostate su ciascuna (o ricalcolandole
+  // se ha già una partenza fissata a mano).
+  function propagaDate(indice) {
+    setTappe(prev => {
+      const nuove = [...prev]
+      for (let i = indice; i < nuove.length - 1; i++) {
+        const attuale = nuove[i]
+        if (!attuale.data_partenza) break // senza una partenza nota non possiamo propagare oltre
+
+        const successiva = nuove[i + 1]
+        const nuovoArrivo = attuale.data_partenza
+        const nuovaPartenza = successiva.notti !== ''
+          ? sommaGiorni(nuovoArrivo, successiva.notti)
+          : successiva.data_partenza
+
+        nuove[i + 1] = {
+          ...successiva,
+          data_arrivo: nuovoArrivo,
+          data_partenza: nuovaPartenza,
+          notti: successiva.notti !== '' ? successiva.notti : calcolaNotti(nuovoArrivo, nuovaPartenza),
+        }
+      }
+      return nuove
+    })
   }
 
   function rimuoviTappa(indice) {
@@ -207,7 +289,9 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
 
         {tappe.length > 0 && (
           <div className="form-viaggio__tappe">
-            {tappe.map((tappa, i) => (
+            {tappe.map((tappa, i) => {
+              const scarto = i > 0 ? calcolaScarto(tappe[i - 1], tappa) : null
+              return (
               <div key={i} className="form-viaggio__tappa">
                 <div className="form-viaggio__tappa-header">
                   <span className="form-viaggio__tappa-num">{i + 1}</span>
@@ -225,15 +309,17 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
                 </div>
                 <div className="form-viaggio__tappa-coords">
                   <input
-                    className="form-viaggio__input form-viaggio__input--coord"
+                    className="form-viaggio__input form-viaggio__input--coord form-viaggio__input--bloccato"
                     value={tappa.lat}
-                    onChange={e => aggiornaTappa(i, 'lat', e.target.value)}
+                    readOnly
+                    title="Coordinata presa dalla ricerca del luogo, non modificabile"
                     placeholder="Lat"
                   />
                   <input
-                    className="form-viaggio__input form-viaggio__input--coord"
+                    className="form-viaggio__input form-viaggio__input--coord form-viaggio__input--bloccato"
                     value={tappa.lng}
-                    onChange={e => aggiornaTappa(i, 'lng', e.target.value)}
+                    readOnly
+                    title="Coordinata presa dalla ricerca del luogo, non modificabile"
                     placeholder="Lng"
                   />
                   <input
@@ -243,8 +329,57 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
                     placeholder="ISO (es. JP)"
                   />
                 </div>
+                {i > 0 && scarto !== null && (
+                  <p className={`form-viaggio__scarto ${scarto > 0 ? 'form-viaggio__scarto--buco' : 'form-viaggio__scarto--sovrapposizione'}`}>
+                    {scarto > 0
+                      ? `⚠ Buco di ${scarto} giorni rispetto alla tappa precedente`
+                      : `⚠ Sovrapposizione di ${Math.abs(scarto)} giorni con la tappa precedente`}
+                  </p>
+                )}
+                <div className="form-viaggio__tappa-date">
+                  <div className="form-viaggio__tappa-campo">
+                    <label className="form-viaggio__label form-viaggio__label--small">Arrivo</label>
+                    <input
+                      className="form-viaggio__input"
+                      type="date"
+                      value={tappa.data_arrivo}
+                      onChange={e => aggiornaDate(i, 'data_arrivo', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-viaggio__tappa-campo">
+                    <label className="form-viaggio__label form-viaggio__label--small">Notti</label>
+                    <input
+                      className="form-viaggio__input"
+                      type="number"
+                      min="0"
+                      value={tappa.notti}
+                      onChange={e => aggiornaDate(i, 'notti', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-viaggio__tappa-campo">
+                    <label className="form-viaggio__label form-viaggio__label--small">Partenza</label>
+                    <input
+                      className="form-viaggio__input"
+                      type="date"
+                      value={tappa.data_partenza}
+                      onChange={e => aggiornaDate(i, 'data_partenza', e.target.value)}
+                    />
+                  </div>
+                  {i < tappe.length - 1 && (
+                    <button
+                      type="button"
+                      className="form-viaggio__propaga-btn"
+                      onClick={() => propagaDate(i)}
+                      disabled={!tappa.data_partenza}
+                      title="Applica questa partenza come arrivo delle tappe successive, a catena"
+                    >
+                      ⇥ Applica alle successive
+                    </button>
+                  )}
+                </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
