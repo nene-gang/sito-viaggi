@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './TimelineViaggio.css'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { etichettaStato } from '../utils/stato'
 
 // Fix icone Leaflet
 delete L.Icon.Default.prototype._getIconUrl
@@ -244,7 +245,7 @@ function TimelineViaggio({ viaggio }) {
         {/* intestazione viaggio */}
         <div className="tl-header">
           <div className="tl-header__eyebrow">
-            {viaggio.stato === 'futuro' ? 'In programma' : 'Completato'}
+            {etichettaStato(viaggio.stato)}
           </div>
           <h1 className="tl-header__titolo">{viaggio.titolo}</h1>
           <div className="tl-header__meta">

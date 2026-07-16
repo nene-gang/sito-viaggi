@@ -5,11 +5,15 @@ import TimelineViaggio from './TimelineViaggio'
 import Statistiche from './Statistiche'
 import { fetchViagggi, fetchViaggio, aggiornaChecklist } from '../api/client'
 import './Home.css'
+import { useNavigate } from 'react-router-dom'
+import FormViaggio from '../components/FormViaggio'
+import { creaViaggio, modificaViaggio, eliminaViaggio } from '../api/client'
+import { etichettaStato } from '../utils/stato'
 
 function formattaData(stringa) {
   if (!stringa) return ''
   const [anno, mese, giorno] = stringa.split('-')
-  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic']
+  const mesi = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic']
   return `${parseInt(giorno)} ${mesi[parseInt(mese) - 1]} ${anno}`
 }
 
@@ -22,22 +26,25 @@ const SEZIONI = [
 
 function Home() {
   const [modaleChecklist, setModaleChecklist] = useState(false)
-  const [sezioneAttiva, setSezioneAttiva]         = useState('mappa')
-  const [menuAperto, setMenuAperto]               = useState(null)
-  const [viaggioAperto, setViaggioAperto]         = useState(null)
-  const [viaggioAttivo, setViaggioAttivo]         = useState(null)
-  const [vistaCorrente, setVistaCorrente]         = useState('mappa')
-  const [tappaSelezionata, setTappaSelezionata]   = useState(null)
+  const [sezioneAttiva, setSezioneAttiva] = useState('mappa')
+  const [menuAperto, setMenuAperto] = useState(null)
+  const [viaggioAperto, setViaggioAperto] = useState(null)
+  const [viaggioAttivo, setViaggioAttivo] = useState(null)
+  const [vistaCorrente, setVistaCorrente] = useState('mappa')
+  const [tappaSelezionata, setTappaSelezionata] = useState(null)
   const [giornoSelezionato, setGiornoSelezionato] = useState('info')
-  const [tuttiGiorni, setTuttiGiorni]             = useState(false)
+  const [tuttiGiorni, setTuttiGiorni] = useState(false)
   const [sidebarCollassata, setSidebarCollassata] = useState(false)
-  const [drawerAperto, setDrawerAperto]           = useState(false)
+  const [drawerAperto, setDrawerAperto] = useState(false)
 
   // Stato per i dati dal Worker
-  const [viaggi, setViagggi]           = useState([])
+  const [viaggi, setViagggi] = useState([])
   const [loadingLista, setLoadingLista] = useState(true)
-  const [errore, setErrore]            = useState(null)
+  const [errore, setErrore] = useState(null)
   const [loadingDettaglio, setLoadingDettaglio] = useState(false)
+  const [modaleForm, setModaleForm] = useState(false)
+  const [viaggioInModifica, setViaggioInModifica] = useState(null)
+  const navigate = useNavigate()
 
   // Carica la lista viaggi all'avvio
   useEffect(() => {
@@ -140,6 +147,45 @@ function Home() {
     setTuttiGiorni(false)
   }
 
+  function isMobile() {
+    return window.innerWidth < 768
+  }
+
+  function apriNuovoViaggio() {
+    setDrawerAperto(false)
+    if (isMobile()) {
+      navigate('/modifica/nuovo')
+    } else {
+      setViaggioInModifica(null)
+      setModaleForm(true)
+    }
+  }
+
+  function apriModificaViaggio(e, viaggio) {
+    e.stopPropagation()
+    setDrawerAperto(false)
+    if (isMobile()) {
+      navigate(`/modifica/${viaggio.id}`)
+    } else {
+      setViaggioInModifica(viaggio)
+      setModaleForm(true)
+    }
+  }
+
+  async function salvatoViaggio() {
+    setModaleForm(false)
+    setViaggioInModifica(null)
+    // Ricarica la lista viaggi
+    const data = await fetchViagggi()
+    setViagggi(data)
+    // Se stavamo modificando il viaggio attivo, ricarica anche il dettaglio
+    if (viaggioInModifica && viaggioAttivo?.id === viaggioInModifica.id) {
+      const dettaglio = await fetchViaggio(viaggioInModifica.id)
+      setViagggi(prev => prev.map(v => v.id === dettaglio.id ? dettaglio : v))
+      setViaggioAttivo(dettaglio)
+    }
+  }
+
   const navContent = (
     <nav className="sidebar__nav">
       {SEZIONI.map(sezione => (
@@ -169,50 +215,66 @@ function Home() {
               ) : errore ? (
                 <p className="sidebar__errore">Errore: {errore}</p>
               ) : (
-                viaggi.map(viaggio => (
-                  <div key={viaggio.id}>
-                    <button
-                      className={`viaggio-card__testa${viaggioAttivo?.id === viaggio.id ? ' viaggio-card__testa--attivo' : ''}`}
-                      onClick={() => selezionaViaggio(viaggio)}
-                    >
-                      <div className="viaggio-card__info">
-                        <span className={`viaggio-card__stato viaggio-card__stato--${viaggio.stato}`}>
-                          {viaggio.stato === 'futuro' ? 'In programma' : 'Completato'}
-                        </span>
-                        <span className="viaggio-card__titolo">{viaggio.titolo}</span>
-                        <span className="viaggio-card__date">
-                          {formattaData(viaggio.data_inizio)} → {formattaData(viaggio.data_fine)}
-                        </span>
-                      </div>
-                      <span className="viaggio-card__freccia">
-                        {viaggioAperto === viaggio.id ? '▲' : '▼'}
-                      </span>
-                    </button>
+                <>
+                  <button
+                    className="sidebar__nuovo-viaggio"
+                    onClick={apriNuovoViaggio}
+                  >
+                    + Nuovo viaggio
+                  </button>
 
-                    {viaggioAperto === viaggio.id && (
-                      <div className="viaggio-card__tappe">
-                        {loadingDettaglio ? (
-                          <p className="sidebar__loading">Caricamento…</p>
-                        ) : viaggioAttivo?.tappe ? (
-                          <>
-                            {/* Tappe */}
-                            {viaggioAttivo.tappe.map(tappa => (
-                              <button
-                                key={tappa.id}
-                                className={`tappa-item${tappaSelezionata?.id === tappa.id ? ' tappa-item--attiva' : ''}`}
-                                onClick={() => apriTappa(tappa)}
-                              >
-                                <span className="tappa-item__nome">{tappa.nome}</span>
-                                <span className="tappa-item__notti">{tappa.notti}n</span>
-                              </button>
-                            ))}
-
-                          </>
-                        ) : null}
+                  {viaggi.map(viaggio => (
+                    <div key={viaggio.id}>
+                      <div className="viaggio-card__testa-wrap">
+                        <button
+                          className={`viaggio-card__testa${viaggioAttivo?.id === viaggio.id ? ' viaggio-card__testa--attivo' : ''}`}
+                          onClick={() => selezionaViaggio(viaggio)}
+                        >
+                          <div className="viaggio-card__info">
+                            <span className={`viaggio-card__stato viaggio-card__stato--${viaggio.stato}`}>
+                              {etichettaStato(viaggio.stato)}
+                            </span>
+                            <span className="viaggio-card__titolo">{viaggio.titolo}</span>
+                            <span className="viaggio-card__date">
+                              {formattaData(viaggio.data_inizio)} → {formattaData(viaggio.data_fine)}
+                            </span>
+                          </div>
+                          <span className="viaggio-card__freccia">
+                            {viaggioAperto === viaggio.id ? '▲' : '▼'}
+                          </span>
+                        </button>
+                        <button
+                          className="viaggio-card__modifica"
+                          onClick={e => apriModificaViaggio(e, viaggio)}
+                          title="Modifica viaggio"
+                        >
+                          ✎
+                        </button>
                       </div>
-                    )}
-                  </div>
-                ))
+
+                      {viaggioAperto === viaggio.id && (
+                        <div className="viaggio-card__tappe">
+                          {loadingDettaglio ? (
+                            <p className="sidebar__loading">Caricamento…</p>
+                          ) : viaggioAttivo?.tappe ? (
+                            <>
+                              {viaggioAttivo.tappe.map(tappa => (
+                                <button
+                                  key={tappa.id}
+                                  className={`tappa-item${tappaSelezionata?.id === tappa.id ? ' tappa-item--attiva' : ''}`}
+                                  onClick={() => apriTappa(tappa)}
+                                >
+                                  <span className="tappa-item__nome">{tappa.nome}</span>
+                                  <span className="tappa-item__notti">{tappa.notti}n</span>
+                                </button>
+                              ))}
+                            </>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           )}
@@ -246,31 +308,31 @@ function Home() {
         {viaggioAttivo ? (
           <div className="home-header__contesto">
             <span className="home-header__viaggio-nome">{viaggioAttivo.titolo}</span>
-              <div className="home-header__viste">
+            <div className="home-header__viste">
+              <button
+                className={`vista-btn${vistaCorrente === 'mappa' ? ' vista-btn--attiva' : ''}`}
+                onClick={() => setVistaCorrente('mappa')}
+              >
+                <span className="vista-btn__icona">◎</span>
+                <span className="vista-btn__label">Mappa</span>
+              </button>
+              <button
+                className={`vista-btn${vistaCorrente === 'timeline' ? ' vista-btn--attiva' : ''}`}
+                onClick={() => setVistaCorrente('timeline')}
+              >
+                <span className="vista-btn__icona">☰</span>
+                <span className="vista-btn__label">Timeline</span>
+              </button>
+              {viaggioAttivo?.checklist_partenza?.length > 0 && (
                 <button
-                  className={`vista-btn${vistaCorrente === 'mappa' ? ' vista-btn--attiva' : ''}`}
-                  onClick={() => setVistaCorrente('mappa')}
+                  className="vista-btn"
+                  onClick={() => setModaleChecklist(true)}
                 >
-                  <span className="vista-btn__icona">◎</span>
-                  <span className="vista-btn__label">Mappa</span>
+                  <span className="vista-btn__icona">☑</span>
+                  <span className="vista-btn__label">Checklist</span>
                 </button>
-                <button
-                  className={`vista-btn${vistaCorrente === 'timeline' ? ' vista-btn--attiva' : ''}`}
-                  onClick={() => setVistaCorrente('timeline')}
-                >
-                  <span className="vista-btn__icona">☰</span>
-                  <span className="vista-btn__label">Timeline</span>
-                </button>
-                {viaggioAttivo?.checklist_partenza?.length > 0 && (
-                  <button
-                    className="vista-btn"
-                    onClick={() => setModaleChecklist(true)}
-                  >
-                    <span className="vista-btn__icona">☑</span>
-                    <span className="vista-btn__label">Checklist</span>
-                  </button>
-                )}
-              </div>
+              )}
+            </div>
           </div>
         ) : (
           <span className="home-header__tag">Map your world</span>
@@ -299,6 +361,7 @@ function Home() {
           <>
             <div className="home-mappa">
               <Mappa
+                viaggi={viaggi}
                 onTappaClick={apriTappa}
                 tappaSelezionata={tappaSelezionata}
                 vistaGlobale={sezioneAttiva === 'mappa' && !viaggioAttivo}
@@ -350,6 +413,24 @@ function Home() {
           </div>
         </div>
       )}
+    {/* MODALE FORM */}
+    {modaleForm && (
+      <div className="modale-overlay" onClick={() => setModaleForm(false)}>
+        <div className="modale modale--form" onClick={e => e.stopPropagation()}>
+          <button
+            className="modale__chiudi modale__chiudi--form"
+            onClick={() => setModaleForm(false)}
+          >
+            ✕
+          </button>
+          <FormViaggio
+            viaggio={viaggioInModifica}
+            onSalvato={salvatoViaggio}
+            onAnnulla={() => setModaleForm(false)}
+          />
+        </div>
+      </div>
+    )}
     </div>
   )
 }
