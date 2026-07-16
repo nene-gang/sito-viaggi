@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import { PROVINCE, CAPITALI_EU, CAPITALI_MONDO, ISO_A_CAPITALE } from '../data/statistiche'
-import viaggi from '../data/viaggi'
 import './Statistiche.css'
 import MappaWandex from '../components/MappaWandex'
+import { fetchViagggi } from '../api/client'
 
 const WORKER_URL = 'https://sito-viaggi-worker.elena-gallarate.workers.dev'
 const STORAGE_KEY = 'atlas_statistiche'
 
-// Ricava capitali visitate automaticamente dai viaggi
-function capitaliDaiViaggi() {
+// Ricava capitali visitate automaticamente dai viaggi passati
+function capitaliDaiViaggi(viaggi) {
   const visited = new Set()
   viaggi.forEach(v => {
     if (v.stato !== 'passato') return
@@ -193,8 +193,9 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
 
 function Statistiche() {
   const [dati, setDati] = useState({ province: [], capitali_eu: [], capitali_mondo: [] })
+  const [viaggi, setViaggi] = useState([])
   const [caricamento, setCaricamento] = useState(true)
-  const autoCapitali = capitaliDaiViaggi()
+  const autoCapitali = capitaliDaiViaggi(viaggi)
 
   useEffect(() => {
     async function inizializza() {
@@ -220,9 +221,12 @@ function Statistiche() {
         localStorage.removeItem(STORAGE_KEY)
       }
 
-      // 2. Carica dal worker
-      const res = await fetch(`${WORKER_URL}/api/wandex`)
-      const righe = await res.json()
+      // 2. Carica dal worker: voci wandex e viaggi, in parallelo
+      const [righe, viaggiCaricati] = await Promise.all([
+        fetch(`${WORKER_URL}/api/wandex`).then(r => r.json()),
+        fetchViagggi(),
+      ])
+      setViaggi(viaggiCaricati)
 
       // 3. Converte in struttura usata dal componente
       const risultato = { province: [], capitali_eu: [], capitali_mondo: [] }
