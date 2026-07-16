@@ -164,6 +164,7 @@
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text);
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -732,6 +733,7 @@
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text);
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1510,6 +1512,23 @@
 }
 
 .form-viaggio__btn--salva:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.form-viaggio__btn--elimina {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #c0392b;
+  margin-right: auto;
+}
+
+.form-viaggio__btn--elimina:hover:not(:disabled) {
+  background: #c0392b18;
+  border-color: #c0392b;
+}
+
+.form-viaggio__btn--elimina:disabled {
   opacity: 0.5;
   cursor: default;
 }

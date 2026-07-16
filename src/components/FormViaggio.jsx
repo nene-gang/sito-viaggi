@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { creaViaggio, modificaViaggio } from '../api/client'
+import { creaViaggio, modificaViaggio, eliminaViaggio } from '../api/client'
 import { STATI_VIAGGIO } from '../utils/stato'
 
 const TAPPA_VUOTA = { nome: '', lat: '', lng: '', paese_iso: '', ordine: 1, data_arrivo: '', data_partenza: '', notti: '' }
@@ -96,7 +96,7 @@ function RicercaLuogo({ onSeleziona }) {
   )
 }
 
-function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
+function FormViaggio({ viaggio, onSalvato, onAnnulla, onEliminato }) {
   const [titolo,      setTitolo]      = useState(viaggio?.titolo      || '')
   const [stato,       setStato]       = useState(viaggio?.stato       || 'bozza')
   const [dataInizio,  setDataInizio]  = useState(viaggio?.data_inizio || '')
@@ -106,6 +106,7 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
     viaggio?.tappe?.map(t => ({ ...t })) || []
   )
   const [salvando,    setSalvando]    = useState(false)
+  const [eliminando,  setEliminando]  = useState(false)
   const [errore,      setErrore]      = useState(null)
 
   function aggiungiTappa(datiLuogo) {
@@ -217,6 +218,25 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
       setErrore(err.message)
     } finally {
       setSalvando(false)
+    }
+  }
+
+  async function elimina() {
+    if (!viaggio?.id) return
+    if (!window.confirm(`Eliminare definitivamente "${titolo}"? Verranno cancellate anche tutte le tappe, i giorni e la checklist. L'operazione non è reversibile.`)) {
+      return
+    }
+
+    setEliminando(true)
+    setErrore(null)
+
+    try {
+      await eliminaViaggio(viaggio.id)
+      onEliminato(viaggio.id)
+    } catch (err) {
+      setErrore(err.message)
+    } finally {
+      setEliminando(false)
     }
   }
 
@@ -393,17 +413,26 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla }) {
 
       {/* Bottoni */}
       <div className="form-viaggio__bottoni">
+        {viaggio?.id && (
+          <button
+            className="form-viaggio__btn form-viaggio__btn--elimina"
+            onClick={elimina}
+            disabled={salvando || eliminando}
+          >
+            {eliminando ? 'Eliminazione...' : 'Elimina viaggio'}
+          </button>
+        )}
         <button
           className="form-viaggio__btn form-viaggio__btn--annulla"
           onClick={onAnnulla}
-          disabled={salvando}
+          disabled={salvando || eliminando}
         >
           Annulla
         </button>
         <button
           className="form-viaggio__btn form-viaggio__btn--salva"
           onClick={salva}
-          disabled={salvando}
+          disabled={salvando || eliminando}
         >
           {salvando ? 'Salvataggio...' : 'Salva'}
         </button>

@@ -189,6 +189,21 @@ function Home() {
     }
   }
 
+  async function eliminatoViaggio(idEliminato) {
+    setModaleForm(false)
+    setViaggioInModifica(null)
+    const data = await fetchViagggi()
+    setViagggi(data)
+    // Se il viaggio eliminato era quello aperto/attivo, ripulisci la vista
+    if (viaggioAttivo?.id === idEliminato) {
+      setViaggioAttivo(null)
+      setTappaSelezionata(null)
+    }
+    if (viaggioAperto === idEliminato) {
+      setViaggioAperto(null)
+    }
+  }
+
   const navContent = (
     <nav className="sidebar__nav">
       {SEZIONI.map(sezione => (
@@ -430,6 +445,7 @@ function Home() {
             viaggio={viaggioInModifica}
             onSalvato={salvatoViaggio}
             onAnnulla={() => setModaleForm(false)}
+            onEliminato={eliminatoViaggio}
           />
         </div>
       </div>

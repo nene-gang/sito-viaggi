@@ -24,6 +24,7 @@ function ModificaViaggio() {
         viaggio={viaggio}
         onSalvato={() => navigate('/')}
         onAnnulla={() => navigate('/')}
+        onEliminato={() => navigate('/')}
       />
     </div>
   )
