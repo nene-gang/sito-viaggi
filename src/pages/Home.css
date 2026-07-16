@@ -1398,6 +1398,69 @@
   cursor: not-allowed;
 }
 
+/* Alloggio */
+.form-viaggio__alloggio {
+  margin-top: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.form-viaggio__alloggio-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg);
+  border: none;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.form-viaggio__alloggio-corpo {
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.form-viaggio__riga-link {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.form-viaggio__riga-link .form-viaggio__input {
+  flex: 1;
+}
+
+.form-viaggio__riga-link button {
+  flex: none;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.form-viaggio__riga-link button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.form-viaggio__alloggio-rimuovi {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #c0392b;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0;
+}
+
 /* Ricerca luogo */
 .ricerca-luogo {
   position: relative;

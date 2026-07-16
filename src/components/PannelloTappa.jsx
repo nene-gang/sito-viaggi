@@ -104,6 +104,19 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
                       Apri in Google Maps →
                     </a>
                   )}
+                  {hotel.link_prenotazione && (
+                    <a
+                      href={hotel.link_prenotazione}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="info-card__link"
+                    >
+                      Vai alla prenotazione →
+                    </a>
+                  )}
+                  {hotel.note && (
+                    <div className="info-card__note">{hotel.note}</div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -114,7 +127,7 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
             )}
 
             {/* Trasporti */}
-            {(tappa.trasporto_arrivo || tappa.trasporto_partenza || tappa.stazione) && (
+            {(tappa.trasporto_arrivo || tappa.trasporto_partenza) && (
               <div>
                 <div className="pannello__sezione-label">🚆 Trasporti</div>
                 <div className="info-card">
@@ -133,15 +146,6 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
                       <div>
                         <div className="info-card__label">Partenza</div>
                         <div>{tappa.trasporto_partenza}</div>
-                      </div>
-                    </div>
-                  )}
-                  {tappa.stazione && tappa.stazione.nome && (
-                    <div className="info-card__riga">
-                      <span className="info-card__icona">🚉</span>
-                      <div>
-                        <div className="info-card__label">{tappa.stazione.nome}</div>
-                        {tappa.stazione.note && <div className="info-card__note">{tappa.stazione.note}</div>}
                       </div>
                     </div>
                   )}
