@@ -33,7 +33,7 @@ export default {
 
       for (const viaggio of results) {
         const { results: tappe } = await env.sito_viaggi_db.prepare(
-          'SELECT id, nome, lat, lng, paese_iso, ordine FROM tappe WHERE viaggio_id = ? ORDER BY ordine'
+          'SELECT id, nome, lat, lng, paese_iso, ordine, notti, data_arrivo FROM tappe WHERE viaggio_id = ? ORDER BY ordine'
         ).bind(viaggio.id).all()
         viaggio.tappe = tappe
       }

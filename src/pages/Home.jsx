@@ -18,10 +18,10 @@ function formattaData(stringa) {
 }
 
 const SEZIONI = [
-  { id: 'mappa',         label: 'Mappa',           icona: '◎' },
-  { id: 'i-miei-viaggi', label: 'I miei viaggi',   icona: '✈', espandibile: true },
-  { id: 'statistiche',   label: 'Collect them all', icona: '◈' },
-  { id: 'sfide',         label: 'Sfide',            icona: '◇' },
+  { id: 'mappa', label: 'Mappa', icona: '◎' },
+  { id: 'i-miei-viaggi', label: 'I miei viaggi', icona: '✈', espandibile: true },
+  { id: 'statistiche', label: "Collect 'em all", icona: '◈' },
+  { id: 'sfide', label: 'Sfide', icona: '◇' },
 ]
 
 function Home() {
@@ -85,7 +85,10 @@ function Home() {
 
     // ← QUI non ci deve essere nulla di estraneo
 
-    if (viaggio.tappe) {
+    // viaggio.tappe esiste sempre ormai (anche nella lista, in versione leggera).
+    // Il segnale giusto per capire se abbiamo già il dettaglio completo è
+    // checklist_partenza, che il worker aggiunge solo su GET /api/viaggi/:id.
+    if (viaggio.checklist_partenza) {
       setViaggioAttivo(viaggio)
       return
     }
