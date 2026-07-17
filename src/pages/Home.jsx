@@ -103,24 +103,24 @@ function Home() {
       .finally(() => setLoadingDettaglio(false))
   }
 
-  function salvaHotelTappa(tappaId, hotel) {
-    const hotelPrecedente = tappaSelezionata?.hotel
+  function salvaCampoTappa(tappaId, campo, valore) {
+    const precedente = tappaSelezionata?.[campo]
 
-    function applica(nuovoHotel) {
+    function applica(nuovoValore) {
       return function aggiorna(v) {
         if (!v?.tappe) return v
-        return { ...v, tappe: v.tappe.map(t => t.id === tappaId ? { ...t, hotel: nuovoHotel } : t) }
+        return { ...v, tappe: v.tappe.map(t => t.id === tappaId ? { ...t, [campo]: nuovoValore } : t) }
       }
     }
 
-    setViagggi(prev => prev.map(applica(hotel)))
-    setViaggioAttivo(prev => applica(hotel)(prev))
-    setTappaSelezionata(prev => prev?.id === tappaId ? { ...prev, hotel } : prev)
+    setViagggi(prev => prev.map(applica(valore)))
+    setViaggioAttivo(prev => applica(valore)(prev))
+    setTappaSelezionata(prev => prev?.id === tappaId ? { ...prev, [campo]: valore } : prev)
 
-    return aggiornaTappa(tappaId, { hotel }).catch(err => {
-      setViagggi(prev => prev.map(applica(hotelPrecedente)))
-      setViaggioAttivo(prev => applica(hotelPrecedente)(prev))
-      setTappaSelezionata(prev => prev?.id === tappaId ? { ...prev, hotel: hotelPrecedente } : prev)
+    return aggiornaTappa(tappaId, { [campo]: valore }).catch(err => {
+      setViagggi(prev => prev.map(applica(precedente)))
+      setViaggioAttivo(prev => applica(precedente)(prev))
+      setTappaSelezionata(prev => prev?.id === tappaId ? { ...prev, [campo]: precedente } : prev)
       throw err
     })
   }
@@ -418,7 +418,7 @@ function Home() {
                 onChiudi={chiudiTappa}
                 tuttiGiorni={tuttiGiorni}
                 onTuttiGiorni={() => setTuttiGiorni(t => !t)}
-                onSalvaHotel={salvaHotelTappa}
+                onSalvaCampo={salvaCampoTappa}
               />
             )}
           </>

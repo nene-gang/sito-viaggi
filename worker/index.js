@@ -57,6 +57,8 @@ export default {
 
       for (const tappa of tappe) {
         tappa.hotel = JSON.parse(tappa.hotel || '{}')
+        tappa.trasporto_arrivo    = tappa.trasporto_arrivo    ? JSON.parse(tappa.trasporto_arrivo)    : null
+        tappa.trasporto_partenza  = tappa.trasporto_partenza  ? JSON.parse(tappa.trasporto_partenza)  : null
 
         const { results: giorni } = await env.sito_viaggi_db.prepare(
           'SELECT * FROM giorni WHERE tappa_id = ? ORDER BY numero'
@@ -151,8 +153,14 @@ export default {
       // Inserisce le tappe
       for (const tappa of tappe) {
         await env.sito_viaggi_db.prepare(
-          'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, notti, data_arrivo, data_partenza, hotel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(nuovoId, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null, JSON.stringify(tappa.hotel || {})).run()
+          'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, notti, data_arrivo, data_partenza, hotel, trasporto_arrivo, trasporto_partenza) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(
+          nuovoId, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine,
+          tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null,
+          JSON.stringify(tappa.hotel || {}),
+          tappa.trasporto_arrivo ? JSON.stringify(tappa.trasporto_arrivo) : null,
+          tappa.trasporto_partenza ? JSON.stringify(tappa.trasporto_partenza) : null
+        ).run()
       }
 
       return json({ ok: true, id: nuovoId })
@@ -209,13 +217,26 @@ export default {
         if (tappa.id && idEsistenti.has(tappa.id)) {
           // Tappa esistente → UPDATE (preserva giorni e attività)
           await env.sito_viaggi_db.prepare(
-            'UPDATE tappe SET nome = ?, lat = ?, lng = ?, paese_iso = ?, ordine = ?, notti = ?, data_arrivo = ?, data_partenza = ?, hotel = ? WHERE id = ?'
-          ).bind(tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null, JSON.stringify(tappa.hotel || {}), tappa.id).run()
+            'UPDATE tappe SET nome = ?, lat = ?, lng = ?, paese_iso = ?, ordine = ?, notti = ?, data_arrivo = ?, data_partenza = ?, hotel = ?, trasporto_arrivo = ?, trasporto_partenza = ? WHERE id = ?'
+          ).bind(
+            tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine,
+            tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null,
+            JSON.stringify(tappa.hotel || {}),
+            tappa.trasporto_arrivo ? JSON.stringify(tappa.trasporto_arrivo) : null,
+            tappa.trasporto_partenza ? JSON.stringify(tappa.trasporto_partenza) : null,
+            tappa.id
+          ).run()
         } else {
           // Tappa nuova → INSERT
           await env.sito_viaggi_db.prepare(
-            'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, notti, data_arrivo, data_partenza, hotel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-          ).bind(id, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine, tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null, JSON.stringify(tappa.hotel || {})).run()
+            'INSERT INTO tappe (viaggio_id, nome, lat, lng, paese_iso, ordine, notti, data_arrivo, data_partenza, hotel, trasporto_arrivo, trasporto_partenza) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+          ).bind(
+            id, tappa.nome, tappa.lat, tappa.lng, tappa.paese_iso || null, tappa.ordine,
+            tappa.notti || null, tappa.data_arrivo || null, tappa.data_partenza || null,
+            JSON.stringify(tappa.hotel || {}),
+            tappa.trasporto_arrivo ? JSON.stringify(tappa.trasporto_arrivo) : null,
+            tappa.trasporto_partenza ? JSON.stringify(tappa.trasporto_partenza) : null
+          ).run()
         }
       }
 
@@ -261,14 +282,15 @@ export default {
       if (!id) return notFound()
 
       const body = await request.json()
-      const campiAggiornabili = ['nome', 'lat', 'lng', 'paese_iso', 'ordine', 'notti', 'data_arrivo', 'data_partenza', 'hotel']
+      const campiAggiornabili = ['nome', 'lat', 'lng', 'paese_iso', 'ordine', 'notti', 'data_arrivo', 'data_partenza', 'hotel', 'trasporto_arrivo', 'trasporto_partenza']
+      const campiJson = ['hotel', 'trasporto_arrivo', 'trasporto_partenza']
 
       const set = []
       const valori = []
       for (const campo of campiAggiornabili) {
         if (campo in body) {
           set.push(`${campo} = ?`)
-          valori.push(campo === 'hotel' ? JSON.stringify(body.hotel || {}) : body[campo])
+          valori.push(campiJson.includes(campo) ? JSON.stringify(body[campo] || {}) : body[campo])
         }
       }
 

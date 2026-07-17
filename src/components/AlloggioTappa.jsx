@@ -1,14 +1,8 @@
 import { useState } from 'react'
 import RicercaLuogo from './RicercaLuogo'
+import { estraiCoordDaLink } from '../utils/luogo'
 
 export const HOTEL_VUOTO = { nome: '', lat: '', lng: '', indirizzo: '', link: '', link_prenotazione: '', costo: '', prenotazione: '', note: '' }
-
-// Prova a estrarre lat/lng da un link Google Maps del tipo ".../@45.464,9.19,17z..."
-// Se il link non contiene quel pattern, restituisce null e si salva comunque solo il link.
-function estraiCoordDaLink(link) {
-  const match = link.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
-  return match ? { lat: parseFloat(match[1]), lng: parseFloat(match[2]) } : null
-}
 
 function AlloggioTappa({ hotel, onCambia, apertoDiDefault = false }) {
   const [espanso, setEspanso]     = useState(apertoDiDefault)

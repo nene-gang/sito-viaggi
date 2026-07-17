@@ -296,6 +296,19 @@
   font-size: 0.83rem;
 }
 
+.info-card + .info-card {
+  margin-top: 8px;
+}
+
+.info-card--azionabile {
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.info-card--azionabile:hover {
+  border-color: var(--accent);
+}
+
 .info-card__nome {
   font-weight: 600;
   font-size: 0.9rem;

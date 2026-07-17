@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import './PannelloTappa.css'
 import AlloggioTappa from './AlloggioTappa'
+import TrasportoTappa from './TrasportoTappa'
 
-function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tuttiGiorni, onTuttiGiorni, onSalvaHotel }) {
-  const [salvandoHotel, setSalvandoHotel] = useState(false)
-  const [erroreHotel, setErroreHotel]     = useState(null)
-  const [modificaHotel, setModificaHotel] = useState(false)
-  const [bozzaHotel, setBozzaHotel]       = useState(null)
+function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tuttiGiorni, onTuttiGiorni, onSalvaCampo }) {
+  const [salvando, setSalvando] = useState(null) // quale campo si sta salvando: 'hotel' | 'trasporto_arrivo' | 'trasporto_partenza' | null
+  const [errore, setErrore]     = useState(null)
+  const [inModifica, setInModifica] = useState(null) // stesso set di valori, quale sezione è aperta in modifica
+  const [bozza, setBozza]       = useState(null)
 
   const haGiorni = tappa.giorni && tappa.giorni.length > 0
   const giorno = haGiorni ? tappa.giorni[giornoSelezionato] : null
@@ -15,19 +16,20 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
   const hotel = tappa.hotel
   const haHotel = hotel && hotel.nome
 
-  function iniziaModificaHotel() {
-    setBozzaHotel(hotel || {})
-    setErroreHotel(null)
-    setModificaHotel(true)
+  function iniziaModifica(campo) {
+    setBozza(tappa[campo] || {})
+    setErrore(null)
+    setInModifica(campo)
   }
 
-  function fineModificaHotel() {
-    setErroreHotel(null)
-    setSalvandoHotel(true)
-    Promise.resolve(onSalvaHotel(tappa.id, bozzaHotel))
-      .then(() => setModificaHotel(false))
-      .catch(err => setErroreHotel(err.message))
-      .finally(() => setSalvandoHotel(false))
+  function fineModifica() {
+    const campo = inModifica
+    setErrore(null)
+    setSalvando(campo)
+    Promise.resolve(onSalvaCampo(tappa.id, campo, bozza))
+      .then(() => setInModifica(null))
+      .catch(err => setErrore(err.message))
+      .finally(() => setSalvando(null))
   }
 
   return (
@@ -93,28 +95,28 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
         {giornoSelezionato === 'info' && (
           <>
             {/* Hotel */}
-            {modificaHotel ? (
+            {inModifica === 'hotel' ? (
               <div>
                 <div className="pannello__sezione-label">🏨 Hotel</div>
                 <AlloggioTappa
-                  hotel={bozzaHotel || {}}
-                  onCambia={setBozzaHotel}
+                  hotel={bozza || {}}
+                  onCambia={setBozza}
                   apertoDiDefault
                 />
-                {erroreHotel && <p className="pannello__errore">{erroreHotel}</p>}
+                {errore && <p className="pannello__errore">{errore}</p>}
                 <button
                   className="pannello__hotel-fine"
-                  onClick={fineModificaHotel}
-                  disabled={salvandoHotel}
+                  onClick={fineModifica}
+                  disabled={salvando === 'hotel'}
                 >
-                  {salvandoHotel ? 'Salvataggio...' : 'Fatto'}
+                  {salvando === 'hotel' ? 'Salvataggio...' : 'Fatto'}
                 </button>
               </div>
             ) : haHotel ? (
               <div>
                 <div className="pannello__sezione-label pannello__sezione-label--con-azione">
                   <span>🏨 Hotel</span>
-                  <button className="pannello__modifica-btn" onClick={iniziaModificaHotel}>✎ Modifica</button>
+                  <button className="pannello__modifica-btn" onClick={() => iniziaModifica('hotel')}>✎ Modifica</button>
                 </div>
                 <div className="info-card">
                   <div className="info-card__nome">{hotel.nome}</div>
@@ -165,36 +167,72 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
               <div className="pannello__vuoto">
                 <span className="pannello__vuoto-icona">🏨</span>
                 <p>Nessun hotel inserito.</p>
-                <button className="pannello__modifica-btn" onClick={iniziaModificaHotel}>+ Aggiungi alloggio</button>
+                <button className="pannello__modifica-btn" onClick={() => iniziaModifica('hotel')}>+ Aggiungi alloggio</button>
               </div>
             )}
 
             {/* Trasporti */}
-            {(tappa.trasporto_arrivo || tappa.trasporto_partenza) && (
-              <div>
-                <div className="pannello__sezione-label">🚆 Trasporti</div>
-                <div className="info-card">
-                  {tappa.trasporto_arrivo && (
-                    <div className="info-card__riga">
-                      <span className="info-card__icona">→</span>
-                      <div>
-                        <div className="info-card__label">Arrivo</div>
-                        <div>{tappa.trasporto_arrivo}</div>
-                      </div>
+            <div>
+              <div className="pannello__sezione-label">🚆 Trasporti</div>
+
+              {inModifica === 'trasporto_arrivo' ? (
+                <>
+                  <TrasportoTappa
+                    trasporto={bozza || {}}
+                    onCambia={setBozza}
+                    direzione="arrivo"
+                    apertoDiDefault
+                  />
+                  {errore && <p className="pannello__errore">{errore}</p>}
+                  <button
+                    className="pannello__hotel-fine"
+                    onClick={fineModifica}
+                    disabled={salvando === 'trasporto_arrivo'}
+                  >
+                    {salvando === 'trasporto_arrivo' ? 'Salvataggio...' : 'Fatto'}
+                  </button>
+                </>
+              ) : (
+                <div className="info-card info-card--azionabile" onClick={() => iniziaModifica('trasporto_arrivo')} role="button" tabIndex={0}>
+                  <div className="info-card__riga">
+                    <span className="info-card__icona">→</span>
+                    <div>
+                      <div className="info-card__label">Arrivo {tappa.trasporto_arrivo?.mezzo && `(${tappa.trasporto_arrivo.mezzo})`}</div>
+                      <div>{tappa.trasporto_arrivo?.dettagli || 'Tocca per aggiungere i dettagli'}</div>
                     </div>
-                  )}
-                  {tappa.trasporto_partenza && (
-                    <div className="info-card__riga">
-                      <span className="info-card__icona">←</span>
-                      <div>
-                        <div className="info-card__label">Partenza</div>
-                        <div>{tappa.trasporto_partenza}</div>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {inModifica === 'trasporto_partenza' ? (
+                <>
+                  <TrasportoTappa
+                    trasporto={bozza || {}}
+                    onCambia={setBozza}
+                    direzione="partenza"
+                    apertoDiDefault
+                  />
+                  {errore && <p className="pannello__errore">{errore}</p>}
+                  <button
+                    className="pannello__hotel-fine"
+                    onClick={fineModifica}
+                    disabled={salvando === 'trasporto_partenza'}
+                  >
+                    {salvando === 'trasporto_partenza' ? 'Salvataggio...' : 'Fatto'}
+                  </button>
+                </>
+              ) : (
+                <div className="info-card info-card--azionabile" onClick={() => iniziaModifica('trasporto_partenza')} role="button" tabIndex={0}>
+                  <div className="info-card__riga">
+                    <span className="info-card__icona">←</span>
+                    <div>
+                      <div className="info-card__label">Partenza {tappa.trasporto_partenza?.mezzo && `(${tappa.trasporto_partenza.mezzo})`}</div>
+                      <div>{tappa.trasporto_partenza?.dettagli || 'Tocca per aggiungere i dettagli'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Note tappa */}
             {tappa.note && (
@@ -206,13 +244,7 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
               </div>
             )}
 
-            {/* Stato vuoto completo */}
-            {!haHotel && !tappa.trasporto_arrivo && !tappa.trasporto_partenza && !tappa.note && (
-              <div className="pannello__vuoto">
-                <span className="pannello__vuoto-icona">📋</span>
-                <p>Nessuna informazione logistica inserita.</p>
-              </div>
-            )}
+
           </>
         )}
 
