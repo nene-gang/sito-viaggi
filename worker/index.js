@@ -1,7 +1,57 @@
+const FRONTEND_ORIGIN = 'https://sito-viaggi.pages.dev'
+const DURATA_SESSIONE_SECONDI = 60 * 60 * 24 * 30 // 30 giorni
+
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': FRONTEND_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Credentials': 'true',
+}
+
+// --- Sessione: cookie firmato, senza tabella sessioni ---
+
+function bufferAHex(buffer) {
+  return [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function chiaveFirma(secret) {
+  return crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  )
+}
+
+async function firmaSessione(userId, secret) {
+  const scadenza = Date.now() + DURATA_SESSIONE_SECONDI * 1000
+  const payload = `${userId}.${scadenza}`
+  const chiave = await chiaveFirma(secret)
+  const firma = await crypto.subtle.sign('HMAC', chiave, new TextEncoder().encode(payload))
+  return `${payload}.${bufferAHex(firma)}`
+}
+
+async function verificaSessione(token, secret) {
+  if (!token) return null
+  const parti = token.split('.')
+  if (parti.length !== 3) return null
+
+  const [userId, scadenza, firmaRicevuta] = parti
+  if (Date.now() > Number(scadenza)) return null
+
+  const chiave = await chiaveFirma(secret)
+  const firma = await crypto.subtle.sign('HMAC', chiave, new TextEncoder().encode(`${userId}.${scadenza}`))
+  if (bufferAHex(firma) !== firmaRicevuta) return null
+
+  return Number(userId)
+}
+
+function leggiCookie(request, nome) {
+  const cookieHeader = request.headers.get('Cookie') || ''
+  const match = cookieHeader.match(new RegExp(`(?:^|; )${nome}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+function cookieSessione(token, maxAge) {
+  return `sessione=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`
 }
 
 function json(data, status = 200) {
@@ -49,6 +99,84 @@ export default {
     // Preflight CORS
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS })
+    }
+
+    // GET /api/auth/login — reindirizza l'utente alla schermata di login Google
+    if (request.method === 'GET' && path === '/api/auth/login') {
+      const redirectUri = `${url.origin}/api/auth/callback`
+      const parametri = new URLSearchParams({
+        client_id: env.GOOGLE_CLIENT_ID,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'openid email profile',
+        access_type: 'online',
+        prompt: 'select_account',
+      })
+      return Response.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${parametri}`, 302)
+    }
+
+    // GET /api/auth/callback — Google torna qui col codice, lo scambiamo per i dati utente
+    if (request.method === 'GET' && path === '/api/auth/callback') {
+      const code = url.searchParams.get('code')
+      if (!code) return json({ errore: 'Codice mancante' }, 400)
+
+      const redirectUri = `${url.origin}/api/auth/callback`
+      const tokenRisposta = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          client_id: env.GOOGLE_CLIENT_ID,
+          client_secret: env.GOOGLE_CLIENT_SECRET,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
+      })
+      const tokenDati = await tokenRisposta.json()
+      if (!tokenDati.access_token) return json({ errore: 'Scambio token con Google fallito' }, 400)
+
+      const utenteRisposta = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenDati.access_token}` },
+      })
+      const googleUser = await utenteRisposta.json()
+      if (!googleUser.id) return json({ errore: 'Impossibile leggere il profilo Google' }, 400)
+
+      let utente = await env.sito_viaggi_db.prepare(
+        'SELECT id FROM utenti WHERE google_id = ?'
+      ).bind(googleUser.id).first()
+
+      if (!utente) {
+        const risultato = await env.sito_viaggi_db.prepare(
+          'INSERT INTO utenti (google_id, email, nome, avatar_url) VALUES (?, ?, ?, ?)'
+        ).bind(googleUser.id, googleUser.email || null, googleUser.name || null, googleUser.picture || null).run()
+        utente = { id: risultato.meta.last_row_id }
+      }
+
+      const token = await firmaSessione(utente.id, env.SESSION_SECRET)
+
+      const headers = new Headers({ Location: FRONTEND_ORIGIN })
+      headers.append('Set-Cookie', cookieSessione(token, DURATA_SESSIONE_SECONDI))
+      return new Response(null, { status: 302, headers })
+    }
+
+    // GET /api/auth/me — chi è l'utente loggato, in base al cookie
+    if (request.method === 'GET' && path === '/api/auth/me') {
+      const token = leggiCookie(request, 'sessione')
+      const userId = await verificaSessione(token, env.SESSION_SECRET)
+      if (!userId) return json({ utente: null })
+
+      const utente = await env.sito_viaggi_db.prepare(
+        'SELECT id, email, nome, avatar_url FROM utenti WHERE id = ?'
+      ).bind(userId).first()
+
+      return json({ utente: utente || null })
+    }
+
+    // POST /api/auth/logout — cancella il cookie di sessione
+    if (request.method === 'POST' && path === '/api/auth/logout') {
+      const headers = new Headers({ 'Content-Type': 'application/json', ...CORS })
+      headers.append('Set-Cookie', cookieSessione('', 0))
+      return new Response(JSON.stringify({ ok: true }), { headers })
     }
 
     // GET /api/viaggi

@@ -1,0 +1,44 @@
+.barra-utente {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.barra-utente-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.barra-utente-nome {
+  color: var(--text);
+  font-weight: 500;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-utente-bottone {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.barra-utente-bottone:hover {
+  opacity: 0.85;
+}
