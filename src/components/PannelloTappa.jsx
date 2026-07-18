@@ -2,15 +2,30 @@ import { useState } from 'react'
 import './PannelloTappa.css'
 import AlloggioTappa from './AlloggioTappa'
 import TrasportoTappa from './TrasportoTappa'
+import AttivitaForm, { ATTIVITA_VUOTA } from './AttivitaForm'
 
-function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tuttiGiorni, onTuttiGiorni, onSalvaCampo }) {
+function PannelloTappa({
+  tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tuttiGiorni, onTuttiGiorni,
+  onSalvaCampo, onCreaGiorno, onEliminaGiorno, onCreaAttivita, onModificaAttivita, onEliminaAttivita,
+}) {
   const [salvando, setSalvando] = useState(null) // quale campo si sta salvando: 'hotel' | 'trasporto_arrivo' | 'trasporto_partenza' | null
   const [errore, setErrore]     = useState(null)
   const [inModifica, setInModifica] = useState(null) // stesso set di valori, quale sezione è aperta in modifica
   const [bozza, setBozza]       = useState(null)
 
+  // Aggiunta di un nuovo giorno
+  const [aggiungendoGiorno, setAggiungendoGiorno] = useState(false)
+  const [bozzaGiorno, setBozzaGiorno]             = useState({ numero: '', data: '', titolo: '' })
+  const [salvandoGiorno, setSalvandoGiorno]       = useState(false)
+
+  // Aggiunta/modifica di un'attività ('nuova' | id | null)
+  const [attivitaInModifica, setAttivitaInModifica] = useState(null)
+  const [bozzaAttivita, setBozzaAttivita]           = useState(null)
+  const [salvandoAttivita, setSalvandoAttivita]     = useState(false)
+  const [erroreAttivita, setErroreAttivita]         = useState(null)
+
   const haGiorni = tappa.giorni && tappa.giorni.length > 0
-  const giorno = haGiorni ? tappa.giorni[giornoSelezionato] : null
+  const giorno = haGiorni && typeof giornoSelezionato === 'number' ? tappa.giorni[giornoSelezionato] : null
   const avvisiGiorno = giorno ? giorno.attivita.filter(a => a.avviso) : []
 
   const hotel = tappa.hotel
@@ -30,6 +45,57 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
       .then(() => setInModifica(null))
       .catch(err => setErrore(err.message))
       .finally(() => setSalvando(null))
+  }
+
+  function iniziaNuovoGiorno() {
+    setBozzaGiorno({ numero: (tappa.giorni?.length || 0) + 1, data: '', titolo: '' })
+    setErroreAttivita(null)
+    setAggiungendoGiorno(true)
+  }
+
+  function salvaGiorno() {
+    setErroreAttivita(null)
+    setSalvandoGiorno(true)
+    Promise.resolve(onCreaGiorno(tappa.id, bozzaGiorno))
+      .then(() => setAggiungendoGiorno(false))
+      .catch(err => setErroreAttivita(err.message))
+      .finally(() => setSalvandoGiorno(false))
+  }
+
+  function eliminaGiornoCorrente() {
+    if (!giorno) return
+    if (!window.confirm(`Eliminare "Giorno ${giorno.numero}" e tutte le sue attività?`)) return
+    onEliminaGiorno(giorno.id)
+  }
+
+  function iniziaNuovaAttivita() {
+    setBozzaAttivita({ ...ATTIVITA_VUOTA })
+    setErroreAttivita(null)
+    setAttivitaInModifica('nuova')
+  }
+
+  function iniziaModificaAttivita(att) {
+    setBozzaAttivita({ ...att, aggiungi_checklist: !!att.aggiungi_checklist })
+    setErroreAttivita(null)
+    setAttivitaInModifica(att.id)
+  }
+
+  function salvaAttivita() {
+    setErroreAttivita(null)
+    setSalvandoAttivita(true)
+    const promessa = attivitaInModifica === 'nuova'
+      ? onCreaAttivita(giorno.id, bozzaAttivita)
+      : onModificaAttivita(attivitaInModifica, bozzaAttivita)
+
+    Promise.resolve(promessa)
+      .then(() => setAttivitaInModifica(null))
+      .catch(err => setErroreAttivita(err.message))
+      .finally(() => setSalvandoAttivita(false))
+  }
+
+  function rimuoviAttivita(id) {
+    if (!window.confirm('Eliminare questa attività?')) return
+    onEliminaAttivita(id)
   }
 
   return (
@@ -86,10 +152,56 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
           </button>
         )}
 
+        {/* tab + Giorno — apre il form per aggiungerne uno nuovo */}
+        <button
+          className="pannello__tab pannello__tab--aggiungi"
+          onClick={iniziaNuovoGiorno}
+        >
+          + Giorno
+        </button>
+
       </div>
 
       {/* ── CORPO ── */}
       <div className="pannello__corpo">
+
+        {aggiungendoGiorno ? (
+          <div>
+            <div className="pannello__sezione-label">📅 Nuovo giorno</div>
+            <div className="form-viaggio__riga">
+              <input
+                className="form-viaggio__input"
+                type="number"
+                min="1"
+                placeholder="Numero"
+                value={bozzaGiorno.numero}
+                onChange={e => setBozzaGiorno(g => ({ ...g, numero: e.target.value }))}
+              />
+              <input
+                className="form-viaggio__input"
+                type="date"
+                value={bozzaGiorno.data}
+                onChange={e => setBozzaGiorno(g => ({ ...g, data: e.target.value }))}
+              />
+            </div>
+            <input
+              className="form-viaggio__input"
+              placeholder="Titolo (es. Esplorazione centro storico)"
+              value={bozzaGiorno.titolo}
+              onChange={e => setBozzaGiorno(g => ({ ...g, titolo: e.target.value }))}
+            />
+            {erroreAttivita && <p className="pannello__errore">{erroreAttivita}</p>}
+            <div className="pannello__giorno-azioni">
+              <button className="pannello__modifica-btn" onClick={() => setAggiungendoGiorno(false)} disabled={salvandoGiorno}>
+                Annulla
+              </button>
+              <button className="pannello__hotel-fine" onClick={salvaGiorno} disabled={salvandoGiorno}>
+                {salvandoGiorno ? 'Salvataggio...' : 'Crea giorno'}
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
 
         {/* ── TAB INFO ── */}
         {giornoSelezionato === 'info' && (
@@ -258,9 +370,12 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
               </div>
             ) : (
               <>
-                <div>
-                  <div className="pannello__giorno-titolo">{giorno.titolo}</div>
-                  <div className="pannello__giorno-data">{giorno.data}</div>
+                <div className="pannello__giorno-head">
+                  <div>
+                    <div className="pannello__giorno-titolo">{giorno.titolo}</div>
+                    <div className="pannello__giorno-data">{giorno.data}</div>
+                  </div>
+                  <button className="pannello__modifica-btn" onClick={eliminaGiornoCorrente}>🗑 Elimina giorno</button>
                 </div>
 
                 {avvisiGiorno.length > 0 && (
@@ -277,26 +392,66 @@ function PannelloTappa({ tappa, giornoSelezionato, onCambiaGiorno, onChiudi, tut
 
                 <div>
                   <div className="pannello__sezione-label">Programma</div>
+
                   <div className="attivita-lista">
-                    {giorno.attivita.map((att, i) => (
-                      <div key={i} className={`attivita attivita--${att.tipo || 'default'}`}>
-                        <span className="attivita__ora">{att.ora}</span>
-                        <div className="attivita__dot" />
-                        <div className="attivita__contenuto">
-                          <div className={`attivita__nome${att.tipo === 'logistica' ? ' attivita__nome--logistica' : ''}`}>
-                            {att.nome}
+                    {giorno.attivita.map((att) => (
+                      attivitaInModifica === att.id ? (
+                        <div key={att.id} className="pannello__attivita-form">
+                          <AttivitaForm attivita={bozzaAttivita} onCambia={setBozzaAttivita} />
+                          {erroreAttivita && <p className="pannello__errore">{erroreAttivita}</p>}
+                          <div className="pannello__giorno-azioni">
+                            <button className="pannello__modifica-btn" onClick={() => rimuoviAttivita(att.id)}>🗑 Elimina</button>
+                            <button className="pannello__hotel-fine" onClick={salvaAttivita} disabled={salvandoAttivita}>
+                              {salvandoAttivita ? 'Salvataggio...' : 'Fatto'}
+                            </button>
                           </div>
-                          {att.note && (
-                            <div className="attivita__note">{att.note}</div>
-                          )}
                         </div>
-                      </div>
+                      ) : (
+                        <div
+                          key={att.id}
+                          className={`attivita attivita--${att.tipo || 'default'} attivita--azionabile`}
+                          onClick={() => iniziaModificaAttivita(att)}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <span className="attivita__ora">{att.ora}</span>
+                          <div className="attivita__dot" />
+                          <div className="attivita__contenuto">
+                            <div className={`attivita__nome${att.tipo === 'logistica' ? ' attivita__nome--logistica' : ''}`}>
+                              {att.nome || 'Attività senza nome'}
+                            </div>
+                            {att.note && (
+                              <div className="attivita__note">{att.note}</div>
+                            )}
+                          </div>
+                        </div>
+                      )
                     ))}
                   </div>
+
+                  {attivitaInModifica === 'nuova' ? (
+                    <div className="pannello__attivita-form">
+                      <AttivitaForm attivita={bozzaAttivita} onCambia={setBozzaAttivita} />
+                      {erroreAttivita && <p className="pannello__errore">{erroreAttivita}</p>}
+                      <div className="pannello__giorno-azioni">
+                        <button className="pannello__modifica-btn" onClick={() => setAttivitaInModifica(null)}>Annulla</button>
+                        <button className="pannello__hotel-fine" onClick={salvaAttivita} disabled={salvandoAttivita}>
+                          {salvandoAttivita ? 'Salvataggio...' : 'Aggiungi'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button className="pannello__modifica-btn pannello__aggiungi-attivita" onClick={iniziaNuovaAttivita}>
+                      + Aggiungi attività
+                    </button>
+                  )}
                 </div>
               </>
             )}
           </>
+        )}
+
+        </>
         )}
 
       </div>

@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS attivita (
   tipo     TEXT,
   lat      REAL,
   lng      REAL,
+  link     TEXT,
   FOREIGN KEY (giorno_id) REFERENCES giorni(id)
 );
 
@@ -55,7 +56,9 @@ CREATE TABLE IF NOT EXISTS checklist_voci (
   testo      TEXT NOT NULL,
   completata INTEGER DEFAULT 0,
   ordine     INTEGER DEFAULT 0,
-  FOREIGN KEY (viaggio_id) REFERENCES viaggi(id)
+  attivita_id INTEGER,
+  FOREIGN KEY (viaggio_id) REFERENCES viaggi(id),
+  FOREIGN KEY (attivita_id) REFERENCES attivita(id)
 );
 
 CREATE TABLE IF NOT EXISTS wandex_voci (

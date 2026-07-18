@@ -137,6 +137,7 @@
   text-align: left;
   cursor: pointer;
   gap: 8px;
+  min-width: 0;
   transition: background var(--transition);
 }
 
@@ -706,6 +707,7 @@
   text-align: left;
   cursor: pointer;
   gap: 8px;
+  min-width: 0;
   transition: background var(--transition);
 }
 
@@ -1175,6 +1177,7 @@
   font-size: 1rem;
   cursor: pointer;
   opacity: 0.5;
+  flex-shrink: 0;
   transition: opacity 0.15s, color 0.15s;
 }
 
@@ -1459,6 +1462,15 @@
   font-size: 0.78rem;
   cursor: pointer;
   padding: 0;
+}
+
+.form-viaggio__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
 }
 
 /* Ricerca luogo */

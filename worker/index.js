@@ -15,6 +15,32 @@ function notFound() {
   return json({ errore: 'Non trovato' }, 404)
 }
 
+// Costruisce il testo di una voce checklist a partire da nome/nota di un'attività
+function costruisciTestoChecklist(nome, note) {
+  if (nome && note) return `${nome}: ${note}`
+  return nome || note || ''
+}
+
+// Mantiene sincronizzata la voce di checklist collegata a un'attività:
+// la crea se serve, la aggiorna se il testo è cambiato, la rimuove se la spunta viene tolta.
+async function sincronizzaChecklist(env, attivitaId, viaggioId, aggiungiChecklist, testo) {
+  const esistente = await env.sito_viaggi_db.prepare(
+    'SELECT id FROM checklist_voci WHERE attivita_id = ?'
+  ).bind(attivitaId).first()
+
+  if (aggiungiChecklist && testo) {
+    if (esistente) {
+      await env.sito_viaggi_db.prepare('UPDATE checklist_voci SET testo = ? WHERE id = ?').bind(testo, esistente.id).run()
+    } else {
+      await env.sito_viaggi_db.prepare(
+        'INSERT INTO checklist_voci (viaggio_id, testo, attivita_id) VALUES (?, ?, ?)'
+      ).bind(viaggioId, testo, attivitaId).run()
+    }
+  } else if (esistente) {
+    await env.sito_viaggi_db.prepare('DELETE FROM checklist_voci WHERE id = ?').bind(esistente.id).run()
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
@@ -300,6 +326,93 @@ export default {
       await env.sito_viaggi_db.prepare(
         `UPDATE tappe SET ${set.join(', ')} WHERE id = ?`
       ).bind(...valori).run()
+
+      return json({ ok: true })
+    }
+
+    // POST /api/tappe/:id/giorni — crea un nuovo giorno per una tappa
+    if (request.method === 'POST' && path.match(/^\/api\/tappe\/\d+\/giorni$/)) {
+      const tappaId = path.split('/')[3]
+      const { numero, data, titolo } = await request.json()
+
+      const risultato = await env.sito_viaggi_db.prepare(
+        'INSERT INTO giorni (tappa_id, numero, data, titolo) VALUES (?, ?, ?, ?)'
+      ).bind(tappaId, numero || null, data || null, titolo || null).run()
+
+      return json({ id: risultato.meta.last_row_id, tappa_id: Number(tappaId), numero, data, titolo, attivita: [] })
+    }
+
+    // DELETE /api/giorni/:id — elimina un giorno, le sue attività, e le voci checklist collegate
+    if (request.method === 'DELETE' && path.startsWith('/api/giorni/')) {
+      const id = path.split('/')[3]
+      if (!id) return notFound()
+
+      const { results: attivitaEsistenti } = await env.sito_viaggi_db.prepare(
+        'SELECT id FROM attivita WHERE giorno_id = ?'
+      ).bind(id).all()
+
+      for (const a of attivitaEsistenti) {
+        await env.sito_viaggi_db.prepare('DELETE FROM checklist_voci WHERE attivita_id = ?').bind(a.id).run()
+      }
+
+      await env.sito_viaggi_db.prepare('DELETE FROM attivita WHERE giorno_id = ?').bind(id).run()
+      await env.sito_viaggi_db.prepare('DELETE FROM giorni WHERE id = ?').bind(id).run()
+
+      return json({ ok: true })
+    }
+
+    // POST /api/giorni/:id/attivita — crea una nuova attività in un giorno
+    if (request.method === 'POST' && path.match(/^\/api\/giorni\/\d+\/attivita$/)) {
+      const giornoId = path.split('/')[3]
+      const body = await request.json()
+
+      const risultato = await env.sito_viaggi_db.prepare(
+        'INSERT INTO attivita (giorno_id, ora, nome, note, tipo, lat, lng, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(giornoId, body.ora || null, body.nome || null, body.note || null, body.tipo || null, body.lat || null, body.lng || null, body.link || null).run()
+
+      const nuovoId = risultato.meta.last_row_id
+
+      const riga = await env.sito_viaggi_db.prepare(
+        'SELECT t.viaggio_id AS viaggio_id FROM giorni g JOIN tappe t ON t.id = g.tappa_id WHERE g.id = ?'
+      ).bind(giornoId).first()
+
+      if (riga) {
+        const testo = costruisciTestoChecklist(body.nome, body.note)
+        await sincronizzaChecklist(env, nuovoId, riga.viaggio_id, body.aggiungi_checklist, testo)
+      }
+
+      return json({ id: nuovoId, giorno_id: Number(giornoId), ...body })
+    }
+
+    // PUT /api/attivita/:id — modifica un'attività
+    if (request.method === 'PUT' && path.startsWith('/api/attivita/')) {
+      const id = path.split('/')[3]
+      if (!id) return notFound()
+      const body = await request.json()
+
+      await env.sito_viaggi_db.prepare(
+        'UPDATE attivita SET ora = ?, nome = ?, note = ?, tipo = ?, lat = ?, lng = ?, link = ? WHERE id = ?'
+      ).bind(body.ora || null, body.nome || null, body.note || null, body.tipo || null, body.lat || null, body.lng || null, body.link || null, id).run()
+
+      const riga = await env.sito_viaggi_db.prepare(
+        'SELECT t.viaggio_id AS viaggio_id FROM attivita a JOIN giorni g ON g.id = a.giorno_id JOIN tappe t ON t.id = g.tappa_id WHERE a.id = ?'
+      ).bind(id).first()
+
+      if (riga) {
+        const testo = costruisciTestoChecklist(body.nome, body.note)
+        await sincronizzaChecklist(env, id, riga.viaggio_id, body.aggiungi_checklist, testo)
+      }
+
+      return json({ ok: true })
+    }
+
+    // DELETE /api/attivita/:id — elimina un'attività (e l'eventuale voce checklist collegata)
+    if (request.method === 'DELETE' && path.startsWith('/api/attivita/')) {
+      const id = path.split('/')[3]
+      if (!id) return notFound()
+
+      await env.sito_viaggi_db.prepare('DELETE FROM checklist_voci WHERE attivita_id = ?').bind(id).run()
+      await env.sito_viaggi_db.prepare('DELETE FROM attivita WHERE id = ?').bind(id).run()
 
       return json({ ok: true })
     }

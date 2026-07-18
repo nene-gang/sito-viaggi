@@ -3,7 +3,10 @@ import Mappa from '../components/Mappa'
 import PannelloTappa from '../components/PannelloTappa'
 import TimelineViaggio from './TimelineViaggio'
 import Statistiche from './Statistiche'
-import { fetchViagggi, fetchViaggio, aggiornaChecklist, aggiornaTappa } from '../api/client'
+import {
+  fetchViagggi, fetchViaggio, aggiornaChecklist, aggiornaTappa,
+  creaGiorno, eliminaGiorno, creaAttivita, modificaAttivita, eliminaAttivita,
+} from '../api/client'
 import './Home.css'
 import { useNavigate } from 'react-router-dom'
 import FormViaggio from '../components/FormViaggio'
@@ -123,6 +126,47 @@ function Home() {
       setTappaSelezionata(prev => prev?.id === tappaId ? { ...prev, [campo]: precedente } : prev)
       throw err
     })
+  }
+
+  // Ricarica il dettaglio completo del viaggio attivo e riallinea tutti gli stati che lo derivano.
+  // Usato dopo ogni modifica a giorni/attività: più semplice e affidabile di un aggiornamento
+  // ottimistico manuale su strutture annidate come tappa.giorni[i].attivita[j].
+  async function ricaricaViaggioAttivo() {
+    if (!viaggioAttivo) return
+    const dettaglio = await fetchViaggio(viaggioAttivo.id)
+    setViagggi(prev => prev.map(v => v.id === dettaglio.id ? dettaglio : v))
+    setViaggioAttivo(dettaglio)
+    setTappaSelezionata(prev => {
+      if (!prev) return prev
+      const tappaAggiornata = dettaglio.tappe.find(t => t.id === prev.id)
+      return tappaAggiornata || prev
+    })
+  }
+
+  async function gestisciCreaGiorno(tappaId, dati) {
+    await creaGiorno(tappaId, dati)
+    await ricaricaViaggioAttivo()
+  }
+
+  async function gestisciEliminaGiorno(giornoId) {
+    await eliminaGiorno(giornoId)
+    await ricaricaViaggioAttivo()
+    setGiornoSelezionato('info')
+  }
+
+  async function gestisciCreaAttivita(giornoId, dati) {
+    await creaAttivita(giornoId, dati)
+    await ricaricaViaggioAttivo()
+  }
+
+  async function gestisciModificaAttivita(id, dati) {
+    await modificaAttivita(id, dati)
+    await ricaricaViaggioAttivo()
+  }
+
+  async function gestisciEliminaAttivita(id) {
+    await eliminaAttivita(id)
+    await ricaricaViaggioAttivo()
   }
 
   function tickChecklist(viaggio, voceId, completata) {
@@ -419,6 +463,11 @@ function Home() {
                 tuttiGiorni={tuttiGiorni}
                 onTuttiGiorni={() => setTuttiGiorni(t => !t)}
                 onSalvaCampo={salvaCampoTappa}
+                onCreaGiorno={gestisciCreaGiorno}
+                onEliminaGiorno={gestisciEliminaGiorno}
+                onCreaAttivita={gestisciCreaAttivita}
+                onModificaAttivita={gestisciModificaAttivita}
+                onEliminaAttivita={gestisciEliminaAttivita}
               />
             )}
           </>

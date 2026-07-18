@@ -107,6 +107,11 @@
   color: #fff;
 }
 
+.pannello__tab--aggiungi {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+
 /* ─── CORPO SCROLLABILE ─────────────────────────── */
 .pannello__corpo {
   flex: 1;
@@ -118,6 +123,13 @@
 }
 
 /* ─── TITOLO GIORNO ─────────────────────────────── */
+.pannello__giorno-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .pannello__giorno-titolo {
   font-size: 0.9rem;
   font-weight: 600;
@@ -128,6 +140,29 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.pannello__giorno-azioni {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+
+.pannello__attivita-form {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem;
+  margin-bottom: 8px;
+}
+
+.pannello__aggiungi-attivita {
+  margin-top: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  width: 100%;
+  text-align: center;
 }
 
 /* ─── SEZIONE LABEL ─────────────────────────────── */
@@ -221,6 +256,18 @@
 }
 
 .attivita:last-child { border-bottom: none; }
+
+.attivita--azionabile {
+  cursor: pointer;
+  border-radius: 4px;
+  padding-left: 4px;
+  padding-right: 4px;
+  margin: 0 -4px;
+}
+
+.attivita--azionabile:hover {
+  background: var(--bg);
+}
 
 .attivita__ora {
   font-size: 0.72rem;
