@@ -1,11 +1,9 @@
-const BASE_URL = 'https://sito-viaggi-worker.elena-gallarate.workers.dev'
-
-// Helper condiviso: aggiunge sempre 'credentials: include' (serve per inviare
-// il cookie di sessione al Worker, che è su un dominio diverso dal sito) e
-// centralizza la gestione degli errori HTTP.
+// Frontend e backend sono ora sullo stesso dominio (Pages Functions),
+// quindi le chiamate usano percorsi relativi: niente più URL assoluto
+// verso workers.dev, e il cookie di sessione viaggia come "prima parte".
 async function richiesta(percorso, opzioni = {}) {
-  const res = await fetch(`${BASE_URL}${percorso}`, {
-    credentials: 'include',
+  const res = await fetch(percorso, {
+    credentials: 'same-origin',
     ...opzioni,
     headers: opzioni.body ? { 'Content-Type': 'application/json', ...opzioni.headers } : opzioni.headers,
   })
@@ -16,7 +14,7 @@ async function richiesta(percorso, opzioni = {}) {
 // --- Autenticazione ---
 
 export function urlLogin() {
-  return `${BASE_URL}/api/auth/login`
+  return '/api/auth/login'
 }
 
 export function fetchUtenteCorrente() {
