@@ -65,6 +65,45 @@ function notFound() {
   return json({ errore: 'Non trovato' }, 404)
 }
 
+function nonAutorizzato() {
+  return json({ errore: 'Devi effettuare il login' }, 401)
+}
+
+function vietato() {
+  return json({ errore: 'Non hai accesso a questa risorsa' }, 403)
+}
+
+async function viaggioAppartieneA(env, viaggioId, userId) {
+  const riga = await env.sito_viaggi_db.prepare(
+    'SELECT id FROM viaggi WHERE id = ? AND utente_id = ?'
+  ).bind(viaggioId, userId).first()
+  return !!riga
+}
+
+async function viaggioIdDiTappa(env, tappaId) {
+  const riga = await env.sito_viaggi_db.prepare('SELECT viaggio_id FROM tappe WHERE id = ?').bind(tappaId).first()
+  return riga ? riga.viaggio_id : null
+}
+
+async function viaggioIdDiGiorno(env, giornoId) {
+  const riga = await env.sito_viaggi_db.prepare(
+    'SELECT t.viaggio_id AS viaggio_id FROM giorni g JOIN tappe t ON t.id = g.tappa_id WHERE g.id = ?'
+  ).bind(giornoId).first()
+  return riga ? riga.viaggio_id : null
+}
+
+async function viaggioIdDiAttivita(env, attivitaId) {
+  const riga = await env.sito_viaggi_db.prepare(
+    'SELECT t.viaggio_id AS viaggio_id FROM attivita a JOIN giorni g ON g.id = a.giorno_id JOIN tappe t ON t.id = g.tappa_id WHERE a.id = ?'
+  ).bind(attivitaId).first()
+  return riga ? riga.viaggio_id : null
+}
+
+async function viaggioIdDiChecklist(env, voceId) {
+  const riga = await env.sito_viaggi_db.prepare('SELECT viaggio_id FROM checklist_voci WHERE id = ?').bind(voceId).first()
+  return riga ? riga.viaggio_id : null
+}
+
 // Costruisce il testo di una voce checklist a partire da nome/nota di un'attività
 function costruisciTestoChecklist(nome, note) {
   if (nome && note) return `${nome}: ${note}`
@@ -100,6 +139,10 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS })
     }
+
+    // Utente loggato (null se nessuna sessione valida) — calcolato una volta,
+    // usato da tutte le rotte sotto per filtrare/autorizzare i dati.
+    const userId = await verificaSessione(leggiCookie(request, 'sessione'), env.SESSION_SECRET)
 
     // GET /api/auth/login — reindirizza l'utente alla schermata di login Google
     if (request.method === 'GET' && path === '/api/auth/login') {
@@ -161,8 +204,6 @@ export default {
 
     // GET /api/auth/me — chi è l'utente loggato, in base al cookie
     if (request.method === 'GET' && path === '/api/auth/me') {
-      const token = leggiCookie(request, 'sessione')
-      const userId = await verificaSessione(token, env.SESSION_SECRET)
       if (!userId) return json({ utente: null })
 
       const utente = await env.sito_viaggi_db.prepare(
@@ -181,9 +222,11 @@ export default {
 
     // GET /api/viaggi
     if (request.method === 'GET' && path === '/api/viaggi') {
+      if (!userId) return nonAutorizzato()
+
       const { results } = await env.sito_viaggi_db.prepare(
-        'SELECT id, titolo, stato, data_inizio, data_fine, descrizione FROM viaggi ORDER BY id'
-      ).all()
+        'SELECT id, titolo, stato, data_inizio, data_fine, descrizione FROM viaggi WHERE utente_id = ? ORDER BY id'
+      ).bind(userId).all()
 
       for (const viaggio of results) {
         const { results: tappe } = await env.sito_viaggi_db.prepare(
@@ -197,12 +240,14 @@ export default {
 
     // GET /api/viaggi/:id
     if (request.method === 'GET' && path.startsWith('/api/viaggi/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
 
       const viaggio = await env.sito_viaggi_db.prepare(
-        'SELECT * FROM viaggi WHERE id = ?'
-      ).bind(id).first()
+        'SELECT * FROM viaggi WHERE id = ? AND utente_id = ?'
+      ).bind(id, userId).first()
       if (!viaggio) return notFound()
 
       const { results: tappe } = await env.sito_viaggi_db.prepare(
@@ -240,8 +285,11 @@ export default {
 
     // GET /api/checklist/:viaggioId
     if (request.method === 'GET' && path.startsWith('/api/checklist/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
+      if (!(await viaggioAppartieneA(env, id, userId))) return vietato()
 
       const { results } = await env.sito_viaggi_db.prepare(
         'SELECT * FROM checklist_voci WHERE viaggio_id = ? ORDER BY ordine'
@@ -251,8 +299,13 @@ export default {
 
     // PUT /api/checklist/:voceId
     if (request.method === 'PUT' && path.startsWith('/api/checklist/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
+
+      const viaggioId = await viaggioIdDiChecklist(env, id)
+      if (!viaggioId || !(await viaggioAppartieneA(env, viaggioId, userId))) return vietato()
 
       const body = await request.json()
       await env.sito_viaggi_db.prepare(
@@ -264,29 +317,33 @@ export default {
     
     // GET /api/wandex
     if (request.method === 'GET' && path === '/api/wandex') {
+      if (!userId) return nonAutorizzato()
+
       const { results } = await env.sito_viaggi_db.prepare(
-        'SELECT categoria, chiave FROM wandex_voci'
-      ).all()
+        'SELECT categoria, chiave FROM wandex_voci WHERE utente_id = ?'
+      ).bind(userId).all()
       return json(results)
     }
 
     // POST /api/wandex  (toggle: inserisce se non esiste, cancella se esiste)
     if (request.method === 'POST' && path === '/api/wandex') {
+      if (!userId) return nonAutorizzato()
+
       const { categoria, chiave } = await request.json()
       if (!categoria || !chiave) return json({ errore: 'Parametri mancanti' }, 400)
 
       const esistente = await env.sito_viaggi_db.prepare(
-        'SELECT 1 FROM wandex_voci WHERE categoria = ? AND chiave = ?'
-      ).bind(categoria, chiave).first()
+        'SELECT 1 FROM wandex_voci WHERE utente_id = ? AND categoria = ? AND chiave = ?'
+      ).bind(userId, categoria, chiave).first()
 
       if (esistente) {
         await env.sito_viaggi_db.prepare(
-          'DELETE FROM wandex_voci WHERE categoria = ? AND chiave = ?'
-        ).bind(categoria, chiave).run()
+          'DELETE FROM wandex_voci WHERE utente_id = ? AND categoria = ? AND chiave = ?'
+        ).bind(userId, categoria, chiave).run()
       } else {
         await env.sito_viaggi_db.prepare(
-          'INSERT INTO wandex_voci (categoria, chiave) VALUES (?, ?)'
-        ).bind(categoria, chiave).run()
+          'INSERT INTO wandex_voci (utente_id, categoria, chiave) VALUES (?, ?, ?)'
+        ).bind(userId, categoria, chiave).run()
       }
 
       return json({ ok: true })
@@ -294,13 +351,15 @@ export default {
 
         // POST /api/viaggi — crea nuovo viaggio
     if (request.method === 'POST' && path === '/api/viaggi') {
+      if (!userId) return nonAutorizzato()
+
       const body = await request.json()
       const { titolo, stato, data_inizio, data_fine, descrizione, tappe = [] } = body
 
       // Inserisce il viaggio e recupera l'id generato
       const risultato = await env.sito_viaggi_db.prepare(
-        'INSERT INTO viaggi (titolo, stato, data_inizio, data_fine, descrizione) VALUES (?, ?, ?, ?, ?)'
-      ).bind(titolo, stato, data_inizio || null, data_fine || null, descrizione || null).run()
+        'INSERT INTO viaggi (utente_id, titolo, stato, data_inizio, data_fine, descrizione) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(userId, titolo, stato, data_inizio || null, data_fine || null, descrizione || null).run()
 
       const nuovoId = risultato.meta.last_row_id
 
@@ -322,16 +381,19 @@ export default {
 
     // PUT /api/viaggi/:id — modifica viaggio esistente
     if (request.method === 'PUT' && path.startsWith('/api/viaggi/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
+      if (!(await viaggioAppartieneA(env, id, userId))) return vietato()
 
       const body = await request.json()
       const { titolo, stato, data_inizio, data_fine, descrizione, tappe = [] } = body
 
       // Aggiorna i dati del viaggio
       await env.sito_viaggi_db.prepare(
-        'UPDATE viaggi SET titolo = ?, stato = ?, data_inizio = ?, data_fine = ?, descrizione = ? WHERE id = ?'
-      ).bind(titolo, stato, data_inizio || null, data_fine || null, descrizione || null, id).run()
+        'UPDATE viaggi SET titolo = ?, stato = ?, data_inizio = ?, data_fine = ?, descrizione = ? WHERE id = ? AND utente_id = ?'
+      ).bind(titolo, stato, data_inizio || null, data_fine || null, descrizione || null, id, userId).run()
 
       // Riconciliazione intelligente delle tappe
       // 1. Recupera gli id delle tappe esistenti nel DB
@@ -399,8 +461,11 @@ export default {
 
     // DELETE /api/viaggi/:id — elimina viaggio e tutto il suo contenuto
     if (request.method === 'DELETE' && path.startsWith('/api/viaggi/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
+      if (!(await viaggioAppartieneA(env, id, userId))) return vietato()
 
       // Elimina in ordine: prima i figli, poi il genitore
       const { results: tappeIds } = await env.sito_viaggi_db.prepare(
@@ -432,8 +497,13 @@ export default {
     // PUT /api/tappe/:id — aggiornamento leggero di una singola tappa
     // (usato dal drawer laterale, per non dover rimandare l'intero viaggio)
     if (request.method === 'PUT' && path.startsWith('/api/tappe/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
+
+      const viaggioId = await viaggioIdDiTappa(env, id)
+      if (!viaggioId || !(await viaggioAppartieneA(env, viaggioId, userId))) return vietato()
 
       const body = await request.json()
       const campiAggiornabili = ['nome', 'lat', 'lng', 'paese_iso', 'ordine', 'notti', 'data_arrivo', 'data_partenza', 'hotel', 'trasporto_arrivo', 'trasporto_partenza']
@@ -460,7 +530,12 @@ export default {
 
     // POST /api/tappe/:id/giorni — crea un nuovo giorno per una tappa
     if (request.method === 'POST' && path.match(/^\/api\/tappe\/\d+\/giorni$/)) {
+      if (!userId) return nonAutorizzato()
+
       const tappaId = path.split('/')[3]
+      const viaggioId = await viaggioIdDiTappa(env, tappaId)
+      if (!viaggioId || !(await viaggioAppartieneA(env, viaggioId, userId))) return vietato()
+
       const { numero, data, titolo } = await request.json()
 
       const risultato = await env.sito_viaggi_db.prepare(
@@ -472,8 +547,13 @@ export default {
 
     // DELETE /api/giorni/:id — elimina un giorno, le sue attività, e le voci checklist collegate
     if (request.method === 'DELETE' && path.startsWith('/api/giorni/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
+
+      const viaggioId = await viaggioIdDiGiorno(env, id)
+      if (!viaggioId || !(await viaggioAppartieneA(env, viaggioId, userId))) return vietato()
 
       const { results: attivitaEsistenti } = await env.sito_viaggi_db.prepare(
         'SELECT id FROM attivita WHERE giorno_id = ?'
@@ -491,7 +571,12 @@ export default {
 
     // POST /api/giorni/:id/attivita — crea una nuova attività in un giorno
     if (request.method === 'POST' && path.match(/^\/api\/giorni\/\d+\/attivita$/)) {
+      if (!userId) return nonAutorizzato()
+
       const giornoId = path.split('/')[3]
+      const viaggioId = await viaggioIdDiGiorno(env, giornoId)
+      if (!viaggioId || !(await viaggioAppartieneA(env, viaggioId, userId))) return vietato()
+
       const body = await request.json()
 
       const risultato = await env.sito_viaggi_db.prepare(
@@ -500,44 +585,43 @@ export default {
 
       const nuovoId = risultato.meta.last_row_id
 
-      const riga = await env.sito_viaggi_db.prepare(
-        'SELECT t.viaggio_id AS viaggio_id FROM giorni g JOIN tappe t ON t.id = g.tappa_id WHERE g.id = ?'
-      ).bind(giornoId).first()
-
-      if (riga) {
-        const testo = costruisciTestoChecklist(body.nome, body.note)
-        await sincronizzaChecklist(env, nuovoId, riga.viaggio_id, body.aggiungi_checklist, testo)
-      }
+      const testo = costruisciTestoChecklist(body.nome, body.note)
+      await sincronizzaChecklist(env, nuovoId, viaggioId, body.aggiungi_checklist, testo)
 
       return json({ id: nuovoId, giorno_id: Number(giornoId), ...body })
     }
 
     // PUT /api/attivita/:id — modifica un'attività
     if (request.method === 'PUT' && path.startsWith('/api/attivita/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
+
+      const viaggioId = await viaggioIdDiAttivita(env, id)
+      if (!viaggioId || !(await viaggioAppartieneA(env, viaggioId, userId))) return vietato()
+
       const body = await request.json()
 
       await env.sito_viaggi_db.prepare(
         'UPDATE attivita SET ora = ?, nome = ?, note = ?, tipo = ?, lat = ?, lng = ?, link = ? WHERE id = ?'
       ).bind(body.ora || null, body.nome || null, body.note || null, body.tipo || null, body.lat || null, body.lng || null, body.link || null, id).run()
 
-      const riga = await env.sito_viaggi_db.prepare(
-        'SELECT t.viaggio_id AS viaggio_id FROM attivita a JOIN giorni g ON g.id = a.giorno_id JOIN tappe t ON t.id = g.tappa_id WHERE a.id = ?'
-      ).bind(id).first()
-
-      if (riga) {
-        const testo = costruisciTestoChecklist(body.nome, body.note)
-        await sincronizzaChecklist(env, id, riga.viaggio_id, body.aggiungi_checklist, testo)
-      }
+      const testo = costruisciTestoChecklist(body.nome, body.note)
+      await sincronizzaChecklist(env, id, viaggioId, body.aggiungi_checklist, testo)
 
       return json({ ok: true })
     }
 
     // DELETE /api/attivita/:id — elimina un'attività (e l'eventuale voce checklist collegata)
     if (request.method === 'DELETE' && path.startsWith('/api/attivita/')) {
+      if (!userId) return nonAutorizzato()
+
       const id = path.split('/')[3]
       if (!id) return notFound()
+
+      const viaggioId = await viaggioIdDiAttivita(env, id)
+      if (!viaggioId || !(await viaggioAppartieneA(env, viaggioId, userId))) return vietato()
 
       await env.sito_viaggi_db.prepare('DELETE FROM checklist_voci WHERE attivita_id = ?').bind(id).run()
       await env.sito_viaggi_db.prepare('DELETE FROM attivita WHERE id = ?').bind(id).run()
