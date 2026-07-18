@@ -204,24 +204,28 @@ function TappaModal({ tappa, palette, onChiudi }) {
               </div>
 
               {/* trasporti */}
-              {(tappa.trasporto_arrivo || tappa.trasporto_partenza) && (
+              {(tappa.trasporto_arrivo?.dettagli || tappa.trasporto_partenza?.dettagli) && (
                 <div className="tl-modal__trasporti">
                   <div className="tl-modal__tr-label">Trasporti</div>
-                  {tappa.trasporto_arrivo && (
+                  {tappa.trasporto_arrivo?.dettagli && (
                     <div className="tl-modal__tr-riga">
                       <span className="tl-modal__tr-icona">→</span>
                       <div>
-                        <div className="tl-modal__tr-tipo">Arrivo</div>
-                        <div>{tappa.trasporto_arrivo}</div>
+                        <div className="tl-modal__tr-tipo">
+                          Arrivo{tappa.trasporto_arrivo.mezzo && ` (${tappa.trasporto_arrivo.mezzo})`}
+                        </div>
+                        <div>{tappa.trasporto_arrivo.dettagli}</div>
                       </div>
                     </div>
                   )}
-                  {tappa.trasporto_partenza && (
+                  {tappa.trasporto_partenza?.dettagli && (
                     <div className="tl-modal__tr-riga">
                       <span className="tl-modal__tr-icona">←</span>
                       <div>
-                        <div className="tl-modal__tr-tipo">Partenza</div>
-                        <div>{tappa.trasporto_partenza}</div>
+                        <div className="tl-modal__tr-tipo">
+                          Partenza{tappa.trasporto_partenza.mezzo && ` (${tappa.trasporto_partenza.mezzo})`}
+                        </div>
+                        <div>{tappa.trasporto_partenza.dettagli}</div>
                       </div>
                     </div>
                   )}
@@ -302,10 +306,10 @@ function TimelineViaggio({ viaggio }) {
                 </div>
 
                 {/* trasporto verso la prossima tappa */}
-                {idx < viaggio.tappe.length - 1 && tappa.trasporto_partenza && (
+                {idx < viaggio.tappe.length - 1 && tappa.trasporto_partenza?.dettagli && (
                   <div className="tl-trasporto">
                     <div className="tl-trasporto__linea" />
-                    <div className="tl-trasporto__testo">{tappa.trasporto_partenza}</div>
+                    <div className="tl-trasporto__testo">{tappa.trasporto_partenza.dettagli}</div>
                   </div>
                 )}
               </div>
