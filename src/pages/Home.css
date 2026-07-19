@@ -1454,6 +1454,29 @@
   cursor: not-allowed;
 }
 
+.form-viaggio__posizione-impostata {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.form-viaggio__posizione-impostata button {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
 .form-viaggio__alloggio-rimuovi {
   align-self: flex-start;
   background: none;
@@ -1512,40 +1535,49 @@
   opacity: 0.5;
 }
 
-.ricerca-luogo__risultati {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-
-.ricerca-luogo__risultato {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+.ricerca-luogo__btn--chiudi {
   background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.ricerca-luogo__mappa-contenitore {
+  margin-top: 0.5rem;
+}
+
+.ricerca-luogo__mappa {
+  height: 220px;
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.ricerca-luogo__suggerimento {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ricerca-luogo__popup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 200px;
+}
+
+.ricerca-luogo__popup-indirizzo {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ricerca-luogo__popup button {
+  padding: 0.35rem 0.6rem;
+  background: var(--accent);
   border: none;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-  font-size: 0.82rem;
-  text-align: left;
+  border-radius: 4px;
+  color: white;
   cursor: pointer;
-}
-
-.ricerca-luogo__risultato:last-child {
-  border-bottom: none;
-}
-
-.ricerca-luogo__risultato:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
+  font-size: 0.82rem;
 }
 
 /* Bottoni salva/annulla */

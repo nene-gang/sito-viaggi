@@ -73,16 +73,27 @@ function AttivitaForm({ attivita, onCambia }) {
       />
 
       <p className="form-viaggio__label form-viaggio__label--small">Posizione sulla mappa (facoltativa)</p>
-      <RicercaLuogo onSeleziona={daRicerca} />
-      <div className="form-viaggio__riga-link">
-        <input
-          className="form-viaggio__input"
-          placeholder="...oppure incolla un link Google Maps"
-          value={linkMappaInput}
-          onChange={e => setLinkMappaInput(e.target.value)}
-        />
-        <button type="button" onClick={usaLinkMappa} disabled={!linkMappaInput.trim()}>Usa</button>
-      </div>
+      {attivita.lat && attivita.lng ? (
+        <div className="form-viaggio__posizione-impostata">
+          <span>📍 Posizione impostata ({Number(attivita.lat).toFixed(4)}, {Number(attivita.lng).toFixed(4)})</span>
+          <button type="button" onClick={() => onCambia({ ...attivita, lat: '', lng: '' })}>
+            Rimuovi
+          </button>
+        </div>
+      ) : (
+        <>
+          <RicercaLuogo onSeleziona={daRicerca} />
+          <div className="form-viaggio__riga-link">
+            <input
+              className="form-viaggio__input"
+              placeholder="...oppure incolla un link Google Maps"
+              value={linkMappaInput}
+              onChange={e => setLinkMappaInput(e.target.value)}
+            />
+            <button type="button" onClick={usaLinkMappa} disabled={!linkMappaInput.trim()}>Usa</button>
+          </div>
+        </>
+      )}
 
       <label className="form-viaggio__checkbox">
         <input
