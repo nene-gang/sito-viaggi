@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react'
-import { PROVINCE, CAPITALI_EU, CAPITALI_MONDO, ISO_A_CAPITALE } from '../data/statistiche'
 import './Statistiche.css'
 import MappaWandex from '../components/MappaWandex'
-import { fetchViagggi } from '../api/client'
+import { fetchViagggi, fetchWandexCatalogo, fetchWandex, toggleWandex } from '../api/client'
 
-const WORKER_URL = 'https://sito-viaggi-worker.elena-gallarate.workers.dev'
 const STORAGE_KEY = 'atlas_statistiche'
 
-// Ricava capitali visitate automaticamente dai viaggi passati
-function capitaliDaiViaggi(viaggi) {
+// Ricava capitali visitate automaticamente dai viaggi passati.
+// isoACapitale è costruita a runtime dal catalogo (iso → nome capitale),
+// così copre sia le capitali UE che quelle del mondo senza bisogno di
+// una lista scritta a mano.
+function capitaliDaiViaggi(viaggi, isoACapitale) {
   const visited = new Set()
   viaggi.forEach(v => {
     if (v.stato !== 'passato') return
     v.tappe.forEach(t => {
-      if (t.paese_iso && ISO_A_CAPITALE[t.paese_iso]) {
-        visited.add(ISO_A_CAPITALE[t.paese_iso])
+      if (t.paese_iso && isoACapitale[t.paese_iso]) {
+        visited.add(isoACapitale[t.paese_iso])
       }
     })
   })
@@ -192,14 +193,22 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
 }
 
 function Statistiche() {
+  const [catalogo, setCatalogo] = useState({ province: [], capitali_eu: [], capitali_mondo: [] })
   const [dati, setDati] = useState({ province: [], capitali_eu: [], capitali_mondo: [] })
   const [viaggi, setViaggi] = useState([])
   const [caricamento, setCaricamento] = useState(true)
-  const autoCapitali = capitaliDaiViaggi(viaggi)
+
+  // Mappa iso → nome capitale, ricavata dal catalogo (UE + mondo insieme),
+  // usata per rilevare automaticamente le capitali visitate dai viaggi.
+  const isoACapitale = Object.fromEntries(
+    [...catalogo.capitali_eu, ...catalogo.capitali_mondo].map(c => [c.iso, c.nome])
+  )
+  const autoCapitali = capitaliDaiViaggi(viaggi, isoACapitale)
 
   useEffect(() => {
     async function inizializza() {
-      // 1. Migrazione da localStorage, se ci sono dati vecchi
+      // Migrazione da localStorage, se ci sono ancora dati vecchi da prima
+      // che il Wandex fosse salvato sul database (compatibilità storica)
       const vecchiDati = localStorage.getItem(STORAGE_KEY)
       if (vecchiDati) {
         const parsed = JSON.parse(vecchiDati)
@@ -209,28 +218,35 @@ function Statistiche() {
             voci.push({ categoria, chiave })
           }
         }
-        await Promise.all(
-          voci.map(v =>
-            fetch(`${WORKER_URL}/api/wandex`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(v),
-            })
-          )
-        )
+        await Promise.all(voci.map(v => toggleWandex(v.categoria, v.chiave)))
         localStorage.removeItem(STORAGE_KEY)
       }
 
-      // 2. Carica dal worker: voci wandex e viaggi, in parallelo
-      const [righe, viaggiCaricati] = await Promise.all([
-        fetch(`${WORKER_URL}/api/wandex`).then(r => r.json()),
+      // Carica in parallelo: catalogo condiviso, le tue voci raccolte, i tuoi viaggi
+      const [righeCatalogo, righeWandex, viaggiCaricati] = await Promise.all([
+        fetchWandexCatalogo(),
+        fetchWandex(),
         fetchViagggi(),
       ])
       setViaggi(viaggiCaricati)
 
-      // 3. Converte in struttura usata dal componente
+      // Il catalogo arriva come righe piatte: le raggruppa per categoria e
+      // adatta i nomi di campo a quelli attesi da Tracker/MappaWandex
+      // (cod/regione per le province, continente per le capitali del mondo).
+      const catalogoRaggruppato = { province: [], capitali_eu: [], capitali_mondo: [] }
+      for (const riga of righeCatalogo) {
+        if (riga.categoria === 'province') {
+          catalogoRaggruppato.province.push({ cod: riga.chiave, nome: riga.nome, regione: riga.gruppo, lat: riga.lat, lng: riga.lng })
+        } else if (riga.categoria === 'capitali_eu') {
+          catalogoRaggruppato.capitali_eu.push({ nome: riga.nome, paese: riga.paese, iso: riga.iso, lat: riga.lat, lng: riga.lng })
+        } else if (riga.categoria === 'capitali_mondo') {
+          catalogoRaggruppato.capitali_mondo.push({ nome: riga.nome, paese: riga.paese, continente: riga.gruppo, iso: riga.iso, lat: riga.lat, lng: riga.lng })
+        }
+      }
+      setCatalogo(catalogoRaggruppato)
+
       const risultato = { province: [], capitali_eu: [], capitali_mondo: [] }
-      for (const { categoria, chiave } of righe) {
+      for (const { categoria, chiave } of righeWandex) {
         if (risultato[categoria]) risultato[categoria].push(chiave)
       }
       setDati(risultato)
@@ -250,17 +266,12 @@ function Statistiche() {
       return { ...prev, [categoria]: nuova }
     })
 
-    // Poi sincronizza col worker in background
-    await fetch(`${WORKER_URL}/api/wandex`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categoria, chiave: key }),
-    })
+    await toggleWandex(categoria, key)
   }
 
   const totProvince = new Set([...dati.province]).size
   const totCapEu    = new Set([...dati.capitali_eu, ...autoCapitali].filter(c =>
-    CAPITALI_EU.some(x => x.nome === c))).size
+    catalogo.capitali_eu.some(x => x.nome === c))).size
   const totCapMondo = new Set([...dati.capitali_mondo, ...autoCapitali]).size
 
   if (caricamento) return (
@@ -282,17 +293,17 @@ function Statistiche() {
           <div className="riepilogo-card">
             <div className="riepilogo-card__num" style={{ color: '#b5451b' }}>{totProvince}</div>
             <div className="riepilogo-card__label">Province italiane</div>
-            <div className="riepilogo-card__tot">su 107</div>
+            <div className="riepilogo-card__tot">su {catalogo.province.length}</div>
           </div>
           <div className="riepilogo-card">
             <div className="riepilogo-card__num" style={{ color: '#1b6eb5' }}>{totCapEu}</div>
             <div className="riepilogo-card__label">Capitali europee</div>
-            <div className="riepilogo-card__tot">su {CAPITALI_EU.length}</div>
+            <div className="riepilogo-card__tot">su {catalogo.capitali_eu.length}</div>
           </div>
           <div className="riepilogo-card">
             <div className="riepilogo-card__num" style={{ color: '#2d6a4f' }}>{totCapMondo}</div>
             <div className="riepilogo-card__label">Capitali del mondo</div>
-            <div className="riepilogo-card__tot">su {CAPITALI_MONDO.length}</div>
+            <div className="riepilogo-card__tot">su {catalogo.capitali_mondo.length}</div>
           </div>
         </div>
 
@@ -301,7 +312,7 @@ function Statistiche() {
             titolo="Province italiane"
             icona="🇮🇹"
             colore="#b5451b"
-            items={PROVINCE}
+            items={catalogo.province}
             visitatiManuali={dati.province}
             visitatiAuto={new Set()}
             onToggle={key => toggle('province', key)}
@@ -312,9 +323,9 @@ function Statistiche() {
             titolo="Capitali europee"
             icona="🇪🇺"
             colore="#1b6eb5"
-            items={CAPITALI_EU}
+            items={catalogo.capitali_eu}
             visitatiManuali={dati.capitali_eu}
-            visitatiAuto={new Set([...autoCapitali].filter(c => CAPITALI_EU.some(x => x.nome === c)))}
+            visitatiAuto={new Set([...autoCapitali].filter(c => catalogo.capitali_eu.some(x => x.nome === c)))}
             onToggle={key => toggle('capitali_eu', key)}
             configMappa={CONFIG_MAPPA.capitali_eu}
             raggruppaPer={null}
@@ -323,7 +334,7 @@ function Statistiche() {
             titolo="Capitali del mondo"
             icona="🌍"
             colore="#2d6a4f"
-            items={CAPITALI_MONDO}
+            items={catalogo.capitali_mondo}
             visitatiManuali={dati.capitali_mondo}
             visitatiAuto={autoCapitali}
             onToggle={key => toggle('capitali_mondo', key)}

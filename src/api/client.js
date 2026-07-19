@@ -69,6 +69,20 @@ export function eliminaGiorno(id) {
   return richiesta(`/api/giorni/${id}`, { method: 'DELETE' })
 }
 
+// --- Wandex ---
+
+export function fetchWandexCatalogo() {
+  return richiesta('/api/wandex/catalogo')
+}
+
+export function fetchWandex() {
+  return richiesta('/api/wandex')
+}
+
+export function toggleWandex(categoria, chiave) {
+  return richiesta('/api/wandex', { method: 'POST', body: JSON.stringify({ categoria, chiave }) })
+}
+
 // --- Attività ---
 
 export function creaAttivita(giornoId, dati) {

@@ -305,6 +305,14 @@ export async function onRequest(context) {
       return json({ ok: true })
     }
     
+    // GET /api/wandex/catalogo — elenco condiviso (province, capitali), uguale per tutti, nessun login richiesto
+    if (request.method === 'GET' && path === '/api/wandex/catalogo') {
+      const { results } = await env.sito_viaggi_db.prepare(
+        'SELECT categoria, chiave, nome, gruppo, paese, iso, lat, lng FROM wandex_catalogo ORDER BY categoria, nome'
+      ).all()
+      return json(results)
+    }
+
     // GET /api/wandex
     if (request.method === 'GET' && path === '/api/wandex') {
       if (!userId) return nonAutorizzato()
