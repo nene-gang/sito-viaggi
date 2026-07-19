@@ -125,6 +125,14 @@ async function sincronizzaChecklist(env, attivitaId, viaggioId, aggiungiChecklis
   }
 }
 
+async function sonoAmici(env, utenteA, utenteB) {
+  const riga = await env.sito_viaggi_db.prepare(
+    `SELECT id FROM amicizie WHERE stato = 'accettata'
+     AND ((richiedente_id = ? AND destinatario_id = ?) OR (richiedente_id = ? AND destinatario_id = ?))`
+  ).bind(utenteA, utenteB, utenteB, utenteA).first()
+  return !!riga
+}
+
 export async function onRequest(context) {
   const { request, env } = context
   const url = new URL(request.url)
@@ -412,6 +420,19 @@ export async function onRequest(context) {
       const { results } = await env.sito_viaggi_db.prepare(
         'SELECT categoria, chiave, nome, gruppo, paese, iso, lat, lng FROM wandex_catalogo ORDER BY categoria, nome'
       ).all()
+      return json(results)
+    }
+
+    // GET /api/wandex/amico/:id — voci Wandex di un amico, solo se l'amicizia è accettata
+    if (request.method === 'GET' && path.startsWith('/api/wandex/amico/')) {
+      if (!userId) return nonAutorizzato()
+
+      const amicoId = path.split('/')[4]
+      if (!(await sonoAmici(env, userId, amicoId))) return vietato()
+
+      const { results } = await env.sito_viaggi_db.prepare(
+        'SELECT categoria, chiave FROM wandex_voci WHERE utente_id = ?'
+      ).bind(amicoId).all()
       return json(results)
     }
 

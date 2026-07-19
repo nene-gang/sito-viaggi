@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
-import { fetchUtenti, inviaRichiestaAmicizia, rispondiRichiestaAmicizia, rimuoviAmicizia } from '../api/client'
+import { fetchUtenti, inviaRichiestaAmicizia, rispondiRichiestaAmicizia, rimuoviAmicizia, fetchWandex, fetchWandexAmico } from '../api/client'
 import './Amici.css'
+
+const CATEGORIE_WANDEX = [
+  { chiave: 'province', label: 'Province italiane', icona: '🇮🇹' },
+  { chiave: 'capitali_eu', label: 'Capitali europee', icona: '🇪🇺' },
+  { chiave: 'capitali_mondo', label: 'Capitali del mondo', icona: '🌍' },
+]
+
+function raggruppaPerCategoria(voci) {
+  const gruppi = { province: new Set(), capitali_eu: new Set(), capitali_mondo: new Set() }
+  voci.forEach(v => { if (gruppi[v.categoria]) gruppi[v.categoria].add(v.chiave) })
+  return gruppi
+}
 
 function Avatar({ utente }) {
   if (utente.avatar_url) {
@@ -16,14 +28,33 @@ function Amici() {
   const [errore, setErrore] = useState(null)
   const [filtro, setFiltro] = useState('')
   const [inCorso, setInCorso] = useState(null) // id utente su cui è in corso un'azione
+  const [mieVoci, setMieVoci] = useState([])
+  const [confronti, setConfronti] = useState({}) // id amico -> voci dell'amico (null mentre carica)
+  const [espanso, setEspanso] = useState(null) // id amico il cui confronto è aperto
 
   function ricarica() {
     return fetchUtenti().then(setUtenti).catch(err => setErrore(err.message))
   }
 
   useEffect(() => {
-    ricarica().finally(() => setCaricamento(false))
+    Promise.all([ricarica(), fetchWandex().then(setMieVoci)]).finally(() => setCaricamento(false))
   }, [])
+
+  async function toggleConfronto(amicoId) {
+    if (espanso === amicoId) {
+      setEspanso(null)
+      return
+    }
+    setEspanso(amicoId)
+    if (!confronti[amicoId]) {
+      try {
+        const voci = await fetchWandexAmico(amicoId)
+        setConfronti(prev => ({ ...prev, [amicoId]: voci }))
+      } catch (err) {
+        setErrore(err.message)
+      }
+    }
+  }
 
   async function esegui(azione, idUtente) {
     setInCorso(idUtente)
@@ -95,24 +126,59 @@ function Amici() {
             <p className="amici-vuoto">Non hai ancora amici — cercali qui sotto e invia una richiesta.</p>
           ) : (
             <div className="amici-lista">
-              {amici.map(u => (
-                <div key={u.id} className="amici-riga">
-                  <Avatar utente={u} />
-                  <span className="amici-nome">{u.nome || u.email}</span>
-                  <div className="amici-azioni">
-                    <button
-                      className="amici-btn amici-btn--rimuovi"
-                      disabled={inCorso === u.id}
-                      onClick={() => {
-                        if (!window.confirm(`Rimuovere ${u.nome || u.email} dagli amici?`)) return
-                        esegui(() => rimuoviAmicizia(u.amicizia_id), u.id)
-                      }}
-                    >
-                      Rimuovi
-                    </button>
+              {amici.map(u => {
+                const mieCategorie = raggruppaPerCategoria(mieVoci)
+                const vociAmico = confronti[u.id]
+                const amicoCategorie = vociAmico ? raggruppaPerCategoria(vociAmico) : null
+                return (
+                  <div key={u.id} className="amici-riga-wrap">
+                    <div className="amici-riga">
+                      <Avatar utente={u} />
+                      <span className="amici-nome">{u.nome || u.email}</span>
+                      <div className="amici-azioni">
+                        <button
+                          className="amici-btn amici-btn--confronta"
+                          onClick={() => toggleConfronto(u.id)}
+                        >
+                          {espanso === u.id ? 'Nascondi Wandex' : 'Confronta Wandex'}
+                        </button>
+                        <button
+                          className="amici-btn amici-btn--rimuovi"
+                          disabled={inCorso === u.id}
+                          onClick={() => {
+                            if (!window.confirm(`Rimuovere ${u.nome || u.email} dagli amici?`)) return
+                            esegui(() => rimuoviAmicizia(u.amicizia_id), u.id)
+                          }}
+                        >
+                          Rimuovi
+                        </button>
+                      </div>
+                    </div>
+
+                    {espanso === u.id && (
+                      <div className="amici-confronto">
+                        {!amicoCategorie ? (
+                          <p className="amici-vuoto">Caricamento confronto...</p>
+                        ) : (
+                          CATEGORIE_WANDEX.map(cat => {
+                            const mie = mieCategorie[cat.chiave]
+                            const sue = amicoCategorie[cat.chiave]
+                            const comuni = [...mie].filter(k => sue.has(k)).length
+                            return (
+                              <div key={cat.chiave} className="amici-confronto__riga">
+                                <span className="amici-confronto__label">{cat.icona} {cat.label}</span>
+                                <span className="amici-confronto__numeri">
+                                  Tu <strong>{mie.size}</strong> · {u.nome || 'Amico'} <strong>{sue.size}</strong> · in comune <strong>{comuni}</strong>
+                                </span>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

@@ -101,6 +101,10 @@ export function fetchWandex() {
   return richiesta('/api/wandex')
 }
 
+export function fetchWandexAmico(utenteId) {
+  return richiesta(`/api/wandex/amico/${utenteId}`)
+}
+
 export function toggleWandex(categoria, chiave) {
   return richiesta('/api/wandex', { method: 'POST', body: JSON.stringify({ categoria, chiave }) })
 }

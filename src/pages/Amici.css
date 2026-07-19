@@ -145,3 +145,46 @@
 .amici-btn--annulla {
   color: var(--text-muted);
 }
+
+.amici-btn--confronta {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.amici-riga-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.amici-confronto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  margin-left: 44px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+}
+
+.amici-confronto__riga {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+
+.amici-confronto__label {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.amici-confronto__numeri {
+  color: var(--text-muted);
+}
+
+.amici-confronto__numeri strong {
+  color: var(--accent);
+}
