@@ -423,6 +423,17 @@ function PannelloTappa({
                             {att.note && (
                               <div className="attivita__note">{att.note}</div>
                             )}
+                            {att.link && (
+                              <a
+                                href={att.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="info-card__link"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                Apri link →
+                              </a>
+                            )}
                           </div>
                         </div>
                       )
