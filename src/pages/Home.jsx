@@ -3,6 +3,7 @@ import Mappa from '../components/Mappa'
 import PannelloTappa from '../components/PannelloTappa'
 import TimelineViaggio from './TimelineViaggio'
 import Statistiche from './Statistiche'
+import Amici from './Amici'
 import {
   fetchViagggi, fetchViaggio, aggiornaChecklist, aggiornaTappa,
   creaGiorno, eliminaGiorno, creaAttivita, modificaAttivita, eliminaAttivita,
@@ -24,6 +25,7 @@ const SEZIONI = [
   { id: 'mappa', label: 'Mappa', icona: '◎' },
   { id: 'i-miei-viaggi', label: 'I miei viaggi', icona: '✈', espandibile: true },
   { id: 'statistiche', label: "Collect 'em all", icona: '◈' },
+  { id: 'amici', label: 'Amici', icona: '♥' },
   { id: 'sfide', label: 'Sfide', icona: '◇' },
 ]
 
@@ -439,6 +441,8 @@ function Home() {
 
         {sezioneAttiva === 'statistiche' ? (
           <Statistiche />
+        ) : sezioneAttiva === 'amici' ? (
+          <Amici />
         ) : vistaCorrente === 'timeline' && viaggioAttivo ? (
           <TimelineViaggio viaggio={viaggioAttivo} />
         ) : (

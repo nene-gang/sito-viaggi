@@ -210,6 +210,108 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ ok: true }), { headers })
     }
 
+    // GET /api/utenti — elenco di chi è registrato sul sito, con lo stato
+    // di amicizia rispetto a te (per poter cercare persone da aggiungere)
+    if (request.method === 'GET' && path === '/api/utenti') {
+      if (!userId) return nonAutorizzato()
+
+      const { results: utenti } = await env.sito_viaggi_db.prepare(
+        'SELECT id, nome, email, avatar_url FROM utenti WHERE id != ? ORDER BY nome'
+      ).bind(userId).all()
+
+      const { results: amicizie } = await env.sito_viaggi_db.prepare(
+        'SELECT * FROM amicizie WHERE richiedente_id = ? OR destinatario_id = ?'
+      ).bind(userId, userId).all()
+
+      const conStato = utenti.map(u => {
+        const relazione = amicizie.find(a => a.richiedente_id === u.id || a.destinatario_id === u.id)
+        let stato = 'nessuna'
+        if (relazione) {
+          if (relazione.stato === 'accettata') stato = 'amici'
+          else if (relazione.richiedente_id === userId) stato = 'richiesta_inviata'
+          else stato = 'richiesta_ricevuta'
+        }
+        return { ...u, stato_amicizia: stato, amicizia_id: relazione?.id || null }
+      })
+
+      return json(conStato)
+    }
+
+    // GET /api/amicizie — le tue amicizie accettate + richieste in sospeso (in entrata e in uscita)
+    if (request.method === 'GET' && path === '/api/amicizie') {
+      if (!userId) return nonAutorizzato()
+
+      const { results } = await env.sito_viaggi_db.prepare(`
+        SELECT a.id, a.stato, a.richiedente_id, a.destinatario_id,
+               u.id AS altro_id, u.nome AS altro_nome, u.avatar_url AS altro_avatar
+        FROM amicizie a
+        JOIN utenti u ON u.id = (CASE WHEN a.richiedente_id = ? THEN a.destinatario_id ELSE a.richiedente_id END)
+        WHERE a.richiedente_id = ? OR a.destinatario_id = ?
+      `).bind(userId, userId, userId).all()
+
+      const amici = results.filter(r => r.stato === 'accettata')
+      const inviate = results.filter(r => r.stato === 'in_attesa' && r.richiedente_id === userId)
+      const ricevute = results.filter(r => r.stato === 'in_attesa' && r.destinatario_id === userId)
+
+      return json({ amici, richieste_inviate: inviate, richieste_ricevute: ricevute })
+    }
+
+    // POST /api/amicizie — invia una richiesta di amicizia
+    if (request.method === 'POST' && path === '/api/amicizie') {
+      if (!userId) return nonAutorizzato()
+
+      const { destinatario_id } = await request.json()
+      if (!destinatario_id || Number(destinatario_id) === userId) {
+        return json({ errore: 'Destinatario non valido' }, 400)
+      }
+
+      const esistente = await env.sito_viaggi_db.prepare(
+        'SELECT id FROM amicizie WHERE (richiedente_id = ? AND destinatario_id = ?) OR (richiedente_id = ? AND destinatario_id = ?)'
+      ).bind(userId, destinatario_id, destinatario_id, userId).first()
+      if (esistente) return json({ errore: 'Esiste già una relazione con questo utente' }, 400)
+
+      const risultato = await env.sito_viaggi_db.prepare(
+        'INSERT INTO amicizie (richiedente_id, destinatario_id, stato) VALUES (?, ?, ?)'
+      ).bind(userId, destinatario_id, 'in_attesa').run()
+
+      return json({ id: risultato.meta.last_row_id, ok: true })
+    }
+
+    // PUT /api/amicizie/:id — accetta o rifiuta una richiesta ricevuta
+    if (request.method === 'PUT' && path.startsWith('/api/amicizie/')) {
+      if (!userId) return nonAutorizzato()
+
+      const id = path.split('/')[3]
+      const richiesta_esistente = await env.sito_viaggi_db.prepare(
+        'SELECT * FROM amicizie WHERE id = ?'
+      ).bind(id).first()
+
+      if (!richiesta_esistente || richiesta_esistente.destinatario_id !== userId) return vietato()
+
+      const { azione } = await request.json()
+      if (azione === 'accetta') {
+        await env.sito_viaggi_db.prepare("UPDATE amicizie SET stato = 'accettata' WHERE id = ?").bind(id).run()
+      } else if (azione === 'rifiuta') {
+        await env.sito_viaggi_db.prepare('DELETE FROM amicizie WHERE id = ?').bind(id).run()
+      } else {
+        return json({ errore: 'Azione non valida' }, 400)
+      }
+
+      return json({ ok: true })
+    }
+
+    // DELETE /api/amicizie/:id — rimuove un'amicizia (o annulla una richiesta inviata)
+    if (request.method === 'DELETE' && path.startsWith('/api/amicizie/')) {
+      if (!userId) return nonAutorizzato()
+
+      const id = path.split('/')[3]
+      const riga = await env.sito_viaggi_db.prepare('SELECT * FROM amicizie WHERE id = ?').bind(id).first()
+      if (!riga || (riga.richiedente_id !== userId && riga.destinatario_id !== userId)) return vietato()
+
+      await env.sito_viaggi_db.prepare('DELETE FROM amicizie WHERE id = ?').bind(id).run()
+      return json({ ok: true })
+    }
+
     // GET /api/viaggi
     if (request.method === 'GET' && path === '/api/viaggi') {
       if (!userId) return nonAutorizzato()

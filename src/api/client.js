@@ -69,6 +69,28 @@ export function eliminaGiorno(id) {
   return richiesta(`/api/giorni/${id}`, { method: 'DELETE' })
 }
 
+// --- Utenti e amicizie ---
+
+export function fetchUtenti() {
+  return richiesta('/api/utenti')
+}
+
+export function fetchAmicizie() {
+  return richiesta('/api/amicizie')
+}
+
+export function inviaRichiestaAmicizia(destinatario_id) {
+  return richiesta('/api/amicizie', { method: 'POST', body: JSON.stringify({ destinatario_id }) })
+}
+
+export function rispondiRichiestaAmicizia(id, azione) {
+  return richiesta(`/api/amicizie/${id}`, { method: 'PUT', body: JSON.stringify({ azione }) })
+}
+
+export function rimuoviAmicizia(id) {
+  return richiesta(`/api/amicizie/${id}`, { method: 'DELETE' })
+}
+
 // --- Wandex ---
 
 export function fetchWandexCatalogo() {
