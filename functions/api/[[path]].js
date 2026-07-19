@@ -618,6 +618,5 @@ export async function onRequest(context) {
 
       return json({ ok: true })
     }
-
     return notFound()
 }
