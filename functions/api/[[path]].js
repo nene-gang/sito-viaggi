@@ -173,7 +173,11 @@ const LIMITE_TESTO_PROPOSTA = 20000
 const SCHEMA_PROPOSTA = {
   type: 'object',
   properties: {
-    tipo_fonte: { type: 'string', description: 'Che tipo di documento è: conferma_volo, conferma_hotel, itinerario, appunti, altro' },
+    tipo_fonte: {
+      type: 'string',
+      enum: ['conferma_volo', 'conferma_hotel', 'conferma_treno', 'itinerario', 'appunti', 'altro'],
+      description: 'Che tipo di documento è. Usa solo uno dei valori ammessi.',
+    },
     titolo: { type: 'string', description: 'Titolo breve del viaggio' },
     data_inizio: { type: 'string', description: 'Data di inizio in formato ISO AAAA-MM-GG, stringa vuota se assente' },
     data_fine: { type: 'string', description: 'Data di fine in formato ISO AAAA-MM-GG, stringa vuota se assente' },
@@ -190,8 +194,11 @@ const SCHEMA_PROPOSTA = {
           data_partenza: { type: 'string', description: 'Data di partenza ISO AAAA-MM-GG, stringa vuota se assente' },
           notti: { type: 'number', description: 'Numero di notti, 0 se non ricavabile' },
           incerta: { type: 'boolean', description: 'true se qualche dato di questa tappa è stato dedotto e non letto esplicitamente' },
+          alloggio_nome: { type: 'string', description: 'Nome della struttura dove si dorme, stringa vuota se non indicata' },
+          alloggio_indirizzo: { type: 'string', description: 'Indirizzo della struttura, stringa vuota se non indicato' },
+          alloggio_riferimento: { type: 'string', description: 'Codice o numero di prenotazione della struttura, stringa vuota se assente' },
         },
-        required: ['nome', 'paese', 'data_arrivo', 'data_partenza', 'notti', 'incerta'],
+        required: ['nome', 'paese', 'data_arrivo', 'data_partenza', 'notti', 'incerta', 'alloggio_nome', 'alloggio_indirizzo', 'alloggio_riferimento'],
       },
     },
     tratte: {
@@ -236,6 +243,9 @@ const PROMPT_PROPOSTA = [
   '- Se il testo è la conferma di un solo volo, è normale che ci sia una sola tappa, o nessuna.',
   '  Non aggiungerne per riempire.',
   '- Metti tappe e tratte in ordine cronologico.',
+  '',
+  'Se il testo è la conferma di un alloggio, la località della struttura è una tappa e i dati',
+  'della struttura vanno nei campi alloggio_ della tappa stessa, non in una tappa separata.',
   '',
   'Usa incerta = true su una tappa ogni volta che hai dedotto o copiato un dato invece di leggerlo',
   'esplicitamente nel testo: date ricavate per differenza, notti calcolate, paesi non scritti.',
