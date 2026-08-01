@@ -269,6 +269,83 @@ function estraiJson(testo) {
   }
 }
 
+// Verifica deterministica della proposta: tutto ciò che possiamo controllare o
+// ricalcolare noi non lo lasciamo al modello.
+const RE_ISO = /^\d{4}-\d{2}-\d{2}$/
+
+function normalizza(s) {
+  return String(s || '').toLowerCase().replace(/[\s\-/.,:_]/g, '')
+}
+
+function giorniTra(a, b) {
+  return Math.round((Date.parse(b) - Date.parse(a)) / 86400000)
+}
+
+function verificaProposta(proposta, testo) {
+  if (!proposta) return { proposta, avvisi: [] }
+
+  const avvisi = []
+  const testoNorm = normalizza(testo)
+  const dataValida = (d) => RE_ISO.test(d || '') && !Number.isNaN(Date.parse(d))
+
+  // 1. Codici e riferimenti: devono comparire nel testo originale.
+  //    Se non ci sono, il modello se li è inventati o li ha storpiati.
+  const controllaCodice = (oggetto, campo, dove) => {
+    const valore = oggetto[campo]
+    if (!valore) return
+    if (!testoNorm.includes(normalizza(valore))) {
+      avvisi.push(`${dove}: il riferimento "${valore}" non compare nel testo, campo svuotato`)
+      oggetto[campo] = ''
+    }
+  }
+
+  // 2. Date: formato ISO valido, altrimenti si svuota.
+  const controllaData = (oggetto, campo, dove) => {
+    if (oggetto[campo] && !dataValida(oggetto[campo])) {
+      avvisi.push(`${dove}: data "${oggetto[campo]}" non valida, campo svuotato`)
+      oggetto[campo] = ''
+    }
+  }
+
+  for (const tappa of proposta.tappe || []) {
+    controllaCodice(tappa, 'alloggio_riferimento', `Tappa ${tappa.nome}`)
+    controllaData(tappa, 'data_arrivo', `Tappa ${tappa.nome}`)
+    controllaData(tappa, 'data_partenza', `Tappa ${tappa.nome}`)
+
+    // 3. Notti: se abbiamo entrambe le date le ricalcoliamo noi.
+    if (dataValida(tappa.data_arrivo) && dataValida(tappa.data_partenza)) {
+      const calcolate = giorniTra(tappa.data_arrivo, tappa.data_partenza)
+      if (calcolate >= 0 && calcolate !== tappa.notti) {
+        avvisi.push(`Tappa ${tappa.nome}: notti corrette da ${tappa.notti} a ${calcolate}`)
+        tappa.notti = calcolate
+        tappa.incerta = true
+      }
+    }
+  }
+
+  for (const tratta of proposta.tratte || []) {
+    controllaCodice(tratta, 'riferimento', `Tratta ${tratta.da}-${tratta.a}`)
+    controllaData(tratta, 'data', `Tratta ${tratta.da}-${tratta.a}`)
+  }
+
+  // 4. Date del viaggio: sempre ricalcolate dai dati, mai quelle del modello.
+  const tutteLeDate = []
+  for (const t of proposta.tappe || []) {
+    if (dataValida(t.data_arrivo)) tutteLeDate.push(t.data_arrivo)
+    if (dataValida(t.data_partenza)) tutteLeDate.push(t.data_partenza)
+  }
+  for (const t of proposta.tratte || []) {
+    if (dataValida(t.data)) tutteLeDate.push(t.data)
+  }
+  if (tutteLeDate.length) {
+    tutteLeDate.sort()
+    proposta.data_inizio = tutteLeDate[0]
+    proposta.data_fine = tutteLeDate[tutteLeDate.length - 1]
+  }
+
+  return { proposta, avvisi }
+}
+
 async function sonoAmici(env, utenteA, utenteB) {
   const riga = await env.sito_viaggi_db.prepare(
     `SELECT id FROM amicizie WHERE stato = 'accettata'
@@ -752,12 +829,15 @@ export async function onRequest(context) {
         proposta = estraiJson(grezzo)
       }
 
+      const verifica = verificaProposta(proposta, testo)
+
       return json({
         ok: proposta !== null,
         modello,
         durata_ms,
         uso: risposta?.usage || null,
-        proposta,
+        proposta: verifica.proposta,
+        avvisi: verifica.avvisi,
         // Presente solo se il parsing è fallito: serve a capire cosa ha risposto
         grezzo: proposta === null ? grezzo : undefined,
       })
