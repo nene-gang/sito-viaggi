@@ -3,7 +3,13 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './MappaWandex.css'
 
-function MappaWandex({ items, visitati, colore, centro, zoom, altezza = 420 }) {
+// Colori per il confronto con un amico — indipendenti dal colore della
+// categoria, così restano riconoscibili in tutte e tre le categorie.
+const COLORE_ENTRAMBI = '#d4af37'
+const COLORE_SOLO_AMICO = '#a855f7'
+const COLORE_NESSUNO = '#c8c4bc'
+
+function MappaWandex({ items, visitati, colore, centro, zoom, altezza = 420, visitatiAmico = null, nomeAmico = '' }) {
   const mapRef = useRef(null)
   const instanceRef = useRef(null)
 
@@ -27,13 +33,27 @@ function MappaWandex({ items, visitati, colore, centro, zoom, altezza = 420 }) {
     items.forEach(item => {
       if (!item.lat || !item.lng) return
       const key = item.cod || item.nome
-      const isVisitato = visitati.has(key)
+      const tuVisitato = visitati.has(key)
+      const amicoVisitato = visitatiAmico ? visitatiAmico.has(key) : false
+
+      let coloreMarker, coloreBordo, etichetta
+      if (visitatiAmico) {
+        if (tuVisitato && amicoVisitato) { coloreMarker = COLORE_ENTRAMBI; etichetta = `✓ Entrambi` }
+        else if (tuVisitato) { coloreMarker = colore; etichetta = '✓ Solo tu' }
+        else if (amicoVisitato) { coloreMarker = COLORE_SOLO_AMICO; etichetta = `✓ Solo ${nomeAmico || 'amico'}` }
+        else { coloreMarker = COLORE_NESSUNO; etichetta = 'Nessuno dei due' }
+        coloreBordo = coloreMarker
+      } else {
+        coloreMarker = tuVisitato ? colore : COLORE_NESSUNO
+        coloreBordo = tuVisitato ? colore : '#9e9a94'
+        etichetta = tuVisitato ? '✓ Visitato' : 'Non ancora'
+      }
 
       const icon = L.divIcon({
         html: `<div style="
           width: 10px; height: 10px; border-radius: 50%;
-          background: ${isVisitato ? colore : '#c8c4bc'};
-          border: 2px solid ${isVisitato ? colore : '#9e9a94'};
+          background: ${coloreMarker};
+          border: 2px solid ${coloreBordo};
           box-shadow: 0 1px 4px rgba(0,0,0,0.2);
           transition: transform 0.15s;
         "></div>`,
@@ -46,11 +66,11 @@ function MappaWandex({ items, visitati, colore, centro, zoom, altezza = 420 }) {
         .addTo(map)
         .bindPopup(`
           <div style="font-family:sans-serif;font-size:12px;min-width:100px">
-            <strong style="color:${isVisitato ? colore : '#5c5750'}">${item.nome}</strong>
+            <strong style="color:${coloreMarker}">${item.nome}</strong>
             ${item.paese ? `<div style="color:#9e9a94;font-size:11px;margin-top:2px">${item.paese}</div>` : ''}
             ${item.regione ? `<div style="color:#9e9a94;font-size:11px;margin-top:2px">${item.regione}</div>` : ''}
-            <div style="margin-top:4px;font-size:11px;color:${isVisitato ? colore : '#9e9a94'}">
-              ${isVisitato ? '✓ Visitato' : 'Non ancora'}
+            <div style="margin-top:4px;font-size:11px;color:${coloreMarker}">
+              ${etichetta}
             </div>
           </div>
         `, { maxWidth: 180 })
@@ -64,7 +84,7 @@ function MappaWandex({ items, visitati, colore, centro, zoom, altezza = 420 }) {
         instanceRef.current = null
       }
     }
-  }, [items, visitati, colore, centro, zoom])
+  }, [items, visitati, colore, centro, zoom, visitatiAmico, nomeAmico])
 
   return (
     <div

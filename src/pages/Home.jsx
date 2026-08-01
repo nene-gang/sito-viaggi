@@ -66,6 +66,7 @@ function Home() {
   // eventualmente accettato/rifiutato qualcosa lì dentro).
   const { utente } = useUtente()
   const [richiesteAmiciziaCount, setRichiesteAmiciziaCount] = useState(0)
+  const [amicoWandexIniziale, setAmicoWandexIniziale] = useState(null)
 
   function caricaConteggioAmicizie() {
     if (!utente) return
@@ -470,9 +471,12 @@ function Home() {
         )}
 
         {sezioneAttiva === 'statistiche' ? (
-          <Statistiche />
+          <Statistiche amicoIniziale={amicoWandexIniziale} />
         ) : sezioneAttiva === 'amici' ? (
-          <Amici />
+          <Amici onConfrontaWandex={amicoId => {
+            setAmicoWandexIniziale(amicoId)
+            setSezioneAttiva('statistiche')
+          }} />
         ) : vistaCorrente === 'timeline' && viaggioAttivo ? (
           <TimelineViaggio viaggio={viaggioAttivo} />
         ) : (

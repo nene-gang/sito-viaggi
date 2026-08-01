@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './Statistiche.css'
 import MappaWandex from '../components/MappaWandex'
-import { fetchViagggi, fetchWandexCatalogo, fetchWandex, toggleWandex } from '../api/client'
+import { fetchViagggi, fetchWandexCatalogo, fetchWandex, toggleWandex, fetchAmicizie, fetchWandexAmico } from '../api/client'
 
 const STORAGE_KEY = 'atlas_statistiche'
 
@@ -43,7 +43,7 @@ const CONFIG_MAPPA = {
   capitali_mondo: { centro: [20.0, 10.0], zoom: 2 },
 }
 
-function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, onToggle, raggruppaPer, configMappa }) {
+function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, onToggle, raggruppaPer, configMappa, visitatiAmico = null, nomeAmico = '' }) {
   const [espanso, setEspanso] = useState(false)
   const [filtro, setFiltro] = useState('')
   const [vista, setVista] = useState('lista')
@@ -52,6 +52,7 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
   const tuttiVisitati = new Set([...visitatiManuali, ...visitatiAuto])
   const count = tuttiVisitati.size
   const totale = items.length
+  const inConfronto = !!visitatiAmico
 
   const gruppi = raggruppaPer
     ? [...new Set(items.map(i => i[raggruppaPer]))].sort()
@@ -65,6 +66,20 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
       const visitato = tuttiVisitati.has(key)
       return filtroVisita === 'visitati' ? visitato : !visitato
     })
+
+  // Colore/stile del bottone di un luogo, tenendo conto del confronto con
+  // un amico se attivo (4 stati) o della semplice visita propria altrimenti.
+  function stileLuogo(key) {
+    const tu = tuttiVisitati.has(key)
+    if (!inConfronto) {
+      return tu ? { borderColor: colore, background: `${colore}15`, color: colore } : {}
+    }
+    const amico = visitatiAmico.has(key)
+    if (tu && amico) return { borderColor: '#d4af37', background: '#d4af3720', color: '#d4af37' }
+    if (tu) return { borderColor: colore, background: `${colore}15`, color: colore }
+    if (amico) return { borderColor: '#a855f7', background: '#a855f720', color: '#a855f7' }
+    return {}
+  }
 
   return (
     <div className="tracker">
@@ -116,9 +131,19 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
               centro={configMappa.centro}
               zoom={configMappa.zoom}
               altezza={380}
+              visitatiAmico={visitatiAmico}
+              nomeAmico={nomeAmico}
             />
           ) : (
           <>
+          {inConfronto && (
+            <div className="tracker__legenda">
+              <span><span className="tracker__pallino" style={{ background: colore }} /> Solo tu</span>
+              <span><span className="tracker__pallino" style={{ background: '#a855f7' }} /> Solo {nomeAmico || 'amico'}</span>
+              <span><span className="tracker__pallino" style={{ background: '#d4af37' }} /> Entrambi</span>
+              <span><span className="tracker__pallino" style={{ background: '#c8c4bc' }} /> Nessuno</span>
+            </div>
+          )}
           <input
             className="tracker__search"
             placeholder="Cerca..."
@@ -148,7 +173,7 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
                         <button
                           key={key}
                           className={`luogo-btn${visitato ? ' luogo-btn--visitato' : ''}${isAuto ? ' luogo-btn--auto' : ''}`}
-                          style={visitato ? { borderColor: colore, background: `${colore}15`, color: colore } : {}}
+                          style={stileLuogo(key)}
                           onClick={() => !isAuto && onToggle(key)}
                           title={isAuto ? 'Importato dai tuoi viaggi' : ''}
                         >
@@ -173,7 +198,7 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
                   <button
                     key={key}
                     className={`luogo-btn${visitato ? ' luogo-btn--visitato' : ''}${isAuto ? ' luogo-btn--auto' : ''}`}
-                    style={visitato ? { borderColor: colore, background: `${colore}15`, color: colore } : {}}
+                    style={stileLuogo(key)}
                     onClick={() => !isAuto && onToggle(key)}
                     title={isAuto ? 'Importato dai tuoi viaggi' : ''}
                   >
@@ -192,11 +217,18 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
   )
 }
 
-function Statistiche() {
+function Statistiche({ amicoIniziale = null }) {
   const [catalogo, setCatalogo] = useState({ province: [], capitali_eu: [], capitali_mondo: [] })
   const [dati, setDati] = useState({ province: [], capitali_eu: [], capitali_mondo: [] })
   const [viaggi, setViaggi] = useState([])
   const [caricamento, setCaricamento] = useState(true)
+
+  // Confronto con un amico: elenco amici per il selettore, chi è
+  // selezionato ora, e i suoi dati Wandex (null finché non è scelto nessuno)
+  const [amici, setAmici] = useState([])
+  const [amicoSelezionato, setAmicoSelezionato] = useState(amicoIniziale)
+  const [datiAmico, setDatiAmico] = useState(null)
+  const [caricandoAmico, setCaricandoAmico] = useState(false)
 
   // Mappa iso → nome capitale, ricavata dal catalogo (UE + mondo insieme),
   // usata per rilevare automaticamente le capitali visitate dai viaggi.
@@ -256,6 +288,30 @@ function Statistiche() {
     inizializza()
   }, [])
 
+  // Elenco amici, per il selettore di confronto
+  useEffect(() => {
+    fetchAmicizie().then(dati => setAmici(dati.amici)).catch(() => {})
+  }, [])
+
+  // Dati Wandex dell'amico selezionato, raggruppati per categoria come i tuoi
+  useEffect(() => {
+    if (!amicoSelezionato) {
+      setDatiAmico(null)
+      return
+    }
+    setCaricandoAmico(true)
+    fetchWandexAmico(amicoSelezionato)
+      .then(righe => {
+        const risultato = { province: new Set(), capitali_eu: new Set(), capitali_mondo: new Set() }
+        for (const { categoria, chiave } of righe) {
+          if (risultato[categoria]) risultato[categoria].add(chiave)
+        }
+        setDatiAmico(risultato)
+      })
+      .catch(() => setDatiAmico(null))
+      .finally(() => setCaricandoAmico(false))
+  }, [amicoSelezionato])
+
   async function toggle(categoria, key) {
     // Aggiornamento ottimistico: aggiorna subito la UI senza aspettare il server
     setDati(prev => {
@@ -273,6 +329,7 @@ function Statistiche() {
   const totCapEu    = new Set([...dati.capitali_eu, ...autoCapitali].filter(c =>
     catalogo.capitali_eu.some(x => x.nome === c))).size
   const totCapMondo = new Set([...dati.capitali_mondo, ...autoCapitali]).size
+  const nomeAmicoSelezionato = amici.find(a => a.altro_id === amicoSelezionato)?.altro_nome || ''
 
   if (caricamento) return (
     <div className="stats-wrap">
@@ -287,6 +344,22 @@ function Statistiche() {
         <div className="stats-header">
           <h1 className="stats-titolo">Wandex</h1>
           <p className="stats-sub">Il tuo Pokédex dei viaggi — colleziona città, province e capitali del mondo</p>
+          {amici.length > 0 && (
+            <div className="stats-confronto">
+              <label htmlFor="confronto-amico">Confronta con:</label>
+              <select
+                id="confronto-amico"
+                value={amicoSelezionato || ''}
+                onChange={e => setAmicoSelezionato(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Nessuno</option>
+                {amici.map(a => (
+                  <option key={a.altro_id} value={a.altro_id}>{a.altro_nome}</option>
+                ))}
+              </select>
+              {caricandoAmico && <span className="stats-confronto__caricamento">Caricamento...</span>}
+            </div>
+          )}
         </div>
 
         <div className="stats-riepilogo">
@@ -318,6 +391,8 @@ function Statistiche() {
             onToggle={key => toggle('province', key)}
             configMappa={CONFIG_MAPPA.province}
             raggruppaPer="regione"
+            visitatiAmico={datiAmico?.province || null}
+            nomeAmico={nomeAmicoSelezionato}
           />
           <Tracker
             titolo="Capitali europee"
@@ -329,6 +404,8 @@ function Statistiche() {
             onToggle={key => toggle('capitali_eu', key)}
             configMappa={CONFIG_MAPPA.capitali_eu}
             raggruppaPer={null}
+            visitatiAmico={datiAmico?.capitali_eu || null}
+            nomeAmico={nomeAmicoSelezionato}
           />
           <Tracker
             titolo="Capitali del mondo"
@@ -340,6 +417,8 @@ function Statistiche() {
             onToggle={key => toggle('capitali_mondo', key)}
             configMappa={CONFIG_MAPPA.capitali_mondo}
             raggruppaPer="continente"
+            visitatiAmico={datiAmico?.capitali_mondo || null}
+            nomeAmico={nomeAmicoSelezionato}
           />
         </div>
 
