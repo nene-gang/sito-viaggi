@@ -7,12 +7,14 @@ import Amici from './Amici'
 import {
   fetchViagggi, fetchViaggio, aggiornaChecklist, aggiornaTappa,
   creaGiorno, eliminaGiorno, creaAttivita, modificaAttivita, eliminaAttivita,
+  fetchAmicizie,
 } from '../api/client'
 import './Home.css'
 import { useNavigate } from 'react-router-dom'
 import FormViaggio from '../components/FormViaggio'
 import { creaViaggio, modificaViaggio, eliminaViaggio } from '../api/client'
 import { etichettaStato } from '../utils/stato'
+import { useUtente } from '../contesto/UtenteContesto'
 
 function formattaData(stringa) {
   if (!stringa) return ''
@@ -59,7 +61,27 @@ function Home() {
       .finally(() => setLoadingLista(false))
   }, [])
 
+  // Conteggio richieste di amicizia in sospeso, per il pallino in sidebar.
+  // Si ricarica ogni volta che si esce dalla sezione Amici (dopo aver
+  // eventualmente accettato/rifiutato qualcosa lì dentro).
+  const { utente } = useUtente()
+  const [richiesteAmiciziaCount, setRichiesteAmiciziaCount] = useState(0)
+
+  function caricaConteggioAmicizie() {
+    if (!utente) return
+    fetchAmicizie()
+      .then(dati => setRichiesteAmiciziaCount(dati.richieste_ricevute.length))
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    caricaConteggioAmicizie()
+  }, [utente])
+
   function cliccaSezione(sezione) {
+    if (sezioneAttiva === 'amici' && sezione.id !== 'amici') {
+      caricaConteggioAmicizie()
+    }
     setSezioneAttiva(sezione.id)
     setDrawerAperto(false)
     if (sezione.espandibile) {
@@ -281,10 +303,18 @@ function Home() {
             onClick={() => cliccaSezione(sezione)}
             title={sezione.label}
           >
-            <span className="sidebar__voce-icona">{sezione.icona}</span>
+            <span className="sidebar__voce-icona">
+              {sezione.icona}
+              {sezione.id === 'amici' && richiesteAmiciziaCount > 0 && (
+                <span className="sidebar__pallino" />
+              )}
+            </span>
             {!sidebarCollassata && (
               <>
                 <span className="sidebar__voce-label">{sezione.label}</span>
+                {sezione.id === 'amici' && richiesteAmiciziaCount > 0 && (
+                  <span className="sidebar__badge">{richiesteAmiciziaCount}</span>
+                )}
                 {sezione.espandibile && (
                   <span className="sidebar__voce-freccia">
                     {menuAperto === sezione.id ? '▲' : '▼'}
