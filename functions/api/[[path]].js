@@ -173,13 +173,14 @@ const LIMITE_TESTO_PROPOSTA = 20000
 const SCHEMA_PROPOSTA = {
   type: 'object',
   properties: {
+    tipo_fonte: { type: 'string', description: 'Che tipo di documento è: conferma_volo, conferma_hotel, itinerario, appunti, altro' },
     titolo: { type: 'string', description: 'Titolo breve del viaggio' },
     data_inizio: { type: 'string', description: 'Data di inizio in formato ISO AAAA-MM-GG, stringa vuota se assente' },
     data_fine: { type: 'string', description: 'Data di fine in formato ISO AAAA-MM-GG, stringa vuota se assente' },
     descrizione: { type: 'string', description: 'Una o due frasi di sintesi, stringa vuota se non ricavabile' },
     tappe: {
       type: 'array',
-      description: 'Le località in cui si pernotta o si sosta, in ordine cronologico',
+      description: 'Solo le località dove si dorme o si passa del tempo di proposito. Scali, cambi di treno e città di partenza NON sono tappe. Ordine cronologico.',
       items: {
         type: 'object',
         properties: {
@@ -193,8 +194,24 @@ const SCHEMA_PROPOSTA = {
         required: ['nome', 'paese', 'data_arrivo', 'data_partenza', 'notti', 'incerta'],
       },
     },
+    tratte: {
+      type: 'array',
+      description: 'Gli spostamenti tra una località e l\'altra: voli, treni, bus, traghetti. Uno scalo va indicato nel campo scali, non come tratta separata.',
+      items: {
+        type: 'object',
+        properties: {
+          da: { type: 'string', description: 'Località di partenza' },
+          a: { type: 'string', description: 'Località di arrivo finale della tratta' },
+          scali: { type: 'string', description: 'Località degli scali intermedi separate da virgola, stringa vuota se volo diretto' },
+          data: { type: 'string', description: 'Data di partenza ISO AAAA-MM-GG, stringa vuota se assente' },
+          mezzo: { type: 'string', description: 'aereo, treno, bus, traghetto, auto o altro' },
+          riferimento: { type: 'string', description: 'Numero volo, codice prenotazione o simile, stringa vuota se assente' },
+        },
+        required: ['da', 'a', 'scali', 'data', 'mezzo', 'riferimento'],
+      },
+    },
   },
-  required: ['titolo', 'data_inizio', 'data_fine', 'descrizione', 'tappe'],
+  required: ['tipo_fonte', 'titolo', 'data_inizio', 'data_fine', 'descrizione', 'tappe', 'tratte'],
 }
 
 const PROMPT_PROPOSTA = [
@@ -208,8 +225,20 @@ const PROMPT_PROPOSTA = [
   '- Se una data è ambigua (es. 03/04 può essere 3 aprile o 4 marzo), scegli il formato giorno/mese',
   '  e segna la tappa con incerta = true.',
   '- Se l\'anno non compare da nessuna parte, lascia le date vuote invece di indovinarlo.',
-  '- Una tappa è una località dove si pernotta o si sosta, non ogni singolo spostamento.',
-  '- Metti le tappe in ordine cronologico.',
+  '',
+  'Distinzione fondamentale tra TAPPE e TRATTE:',
+  '- Una TAPPA è un luogo dove si dorme o si passa del tempo di proposito, come destinazione.',
+  '- Uno spostamento (volo, treno, bus) è una TRATTA, non una tappa.',
+  '- Non sono MAI tappe: gli aeroporti e le stazioni di partenza, gli scali e i cambi di treno,',
+  '  le città attraversate senza fermarsi.',
+  '- Esempio: un volo Milano-Bruxelles-Pechino con scalo a Bruxelles produce UNA tratta',
+  '  (da Milano, a Pechino, scali Bruxelles) e UNA tappa (Pechino). Milano e Bruxelles non sono tappe.',
+  '- Se il testo è la conferma di un solo volo, è normale che ci sia una sola tappa, o nessuna.',
+  '  Non aggiungerne per riempire.',
+  '- Metti tappe e tratte in ordine cronologico.',
+  '',
+  'Usa incerta = true su una tappa ogni volta che hai dedotto o copiato un dato invece di leggerlo',
+  'esplicitamente nel testo: date ricavate per differenza, notti calcolate, paesi non scritti.',
 ].join('\n')
 
 // Alcuni modelli ignorano la JSON mode e rispondono con testo attorno al JSON
