@@ -1,6 +1,6 @@
-// Applica le modifiche: schema proposta viaggio con tappe/tratte separate.
-// Uso: salva nella cartella radice del progetto e lancia:  node applica-modifiche.js
-import { writeFileSync, mkdirSync } from 'fs'
+// Applica le modifiche: schema proposta viaggio con tappe e tratte separate.
+// Uso: salva nella cartella RADICE del progetto e lancia:  node applica-modifiche.js
+import { writeFileSync, mkdirSync, readFileSync } from 'fs'
 import { dirname } from 'path'
 
 const files = {
@@ -13,4 +13,10 @@ for (const [percorso, b64] of Object.entries(files)) {
   console.log('scritto:', percorso)
 }
 
-console.log('\nFatto. Controlla i file, poi git add / commit / push.')
+// Verifica: il file scritto deve contenere i campi nuovi.
+const contenuto = readFileSync("functions/api/[[path]].js", 'utf8')
+const ok = contenuto.includes('tratte') && contenuto.includes('tipo_fonte')
+console.log(ok
+  ? '\nVERIFICA OK — tratte e tipo_fonte presenti nel file.'
+  : '\nATTENZIONE — i campi nuovi non ci sono: stai eseguendo una versione vecchia dello script.')
+console.log('Ora: git add . && git commit -m "tappe e tratte separate" && git push')
