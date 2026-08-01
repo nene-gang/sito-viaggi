@@ -42,3 +42,56 @@
 .barra-utente-bottone:hover {
   opacity: 0.85;
 }
+
+.barra-utente__accesso {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barra-utente-link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.barra-utente__form {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 220px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.barra-utente__input {
+  padding: 0.4rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.barra-utente__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.barra-utente__errore {
+  margin: 0;
+  color: #b5451b;
+  font-size: 0.75rem;
+}

@@ -49,6 +49,42 @@ function cookieSessione(token, maxAge) {
   return `sessione=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`
 }
 
+// --- Password: PBKDF2 con salt casuale per utente (niente bcrypt/scrypt
+// disponibile nelle Web Crypto API di Cloudflare, PBKDF2 è l'alternativa
+// sicura supportata nativamente). 100.000 iterazioni è un valore comune
+// raccomandato per bilanciare sicurezza e tempo di calcolo.
+
+const PBKDF2_ITERAZIONI = 100000
+
+async function hashPassword(password, saltHexEsistente = null) {
+  const salt = saltHexEsistente
+    ? Uint8Array.from(saltHexEsistente.match(/.{2}/g).map(b => parseInt(b, 16)))
+    : crypto.getRandomValues(new Uint8Array(16))
+
+  const chiave = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  )
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERAZIONI, hash: 'SHA-256' },
+    chiave, 256
+  )
+  return { hash: bufferAHex(bits), salt: bufferAHex(salt) }
+}
+
+// Confronto a tempo costante: evita che un attaccante possa dedurre
+// quanto della password è corretta misurando quanto impiega la risposta.
+function confrontaCostante(a, b) {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+async function verificaPassword(password, hashSalvato, saltSalvato) {
+  const { hash } = await hashPassword(password, saltSalvato)
+  return confrontaCostante(hash, hashSalvato)
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -189,7 +225,7 @@ export async function onRequest(context) {
       if (!utente) {
         const risultato = await env.sito_viaggi_db.prepare(
           'INSERT INTO utenti (google_id, email, nome, avatar_url) VALUES (?, ?, ?, ?)'
-        ).bind(googleUser.id, googleUser.email || null, googleUser.name || null, googleUser.picture || null).run()
+        ).bind(googleUser.id, (googleUser.email || '').trim().toLowerCase() || null, googleUser.name || null, googleUser.picture || null).run()
         utente = { id: risultato.meta.last_row_id }
       }
 
@@ -209,6 +245,63 @@ export async function onRequest(context) {
       ).bind(userId).first()
 
       return json({ utente: utente || null })
+    }
+
+    // POST /api/auth/registrati — crea un account con email + password
+    if (request.method === 'POST' && path === '/api/auth/registrati') {
+      const body = await request.json()
+      const email = (body.email || '').trim().toLowerCase()
+      const password = body.password || ''
+      const nome = (body.nome || '').trim() || null
+
+      if (!email || !email.includes('@')) return json({ errore: 'Email non valida' }, 400)
+      if (password.length < 8) return json({ errore: 'La password deve avere almeno 8 caratteri' }, 400)
+
+      const esistente = await env.sito_viaggi_db.prepare(
+        'SELECT id, google_id, password_hash FROM utenti WHERE email = ?'
+      ).bind(email).first()
+
+      if (esistente) {
+        if (esistente.password_hash) return json({ errore: 'Esiste già un account con questa email' }, 400)
+        if (esistente.google_id) return json({ errore: 'Questa email è già registrata con Google — usa "Accedi con Google"' }, 400)
+      }
+
+      const { hash, salt } = await hashPassword(password)
+      const risultato = await env.sito_viaggi_db.prepare(
+        'INSERT INTO utenti (email, nome, password_hash, password_salt) VALUES (?, ?, ?, ?)'
+      ).bind(email, nome, hash, salt).run()
+
+      const token = await firmaSessione(risultato.meta.last_row_id, env.SESSION_SECRET)
+      const headers = new Headers({ 'Content-Type': 'application/json' })
+      headers.append('Set-Cookie', cookieSessione(token, DURATA_SESSIONE_SECONDI))
+      return new Response(JSON.stringify({ ok: true }), { headers })
+    }
+
+    // POST /api/auth/accedi — login con email + password
+    if (request.method === 'POST' && path === '/api/auth/accedi') {
+      const body = await request.json()
+      const email = (body.email || '').trim().toLowerCase()
+      const password = body.password || ''
+
+      // Messaggio d'errore volutamente generico (email o password) — non
+      // riveliamo se è l'email a non esistere o la password a essere sbagliata,
+      // altrimenti si può usare il login per scoprire quali email sono registrate.
+      const erroreGenerico = () => json({ errore: 'Email o password non corretti' }, 401)
+
+      const utente = await env.sito_viaggi_db.prepare(
+        'SELECT id, password_hash, password_salt, google_id FROM utenti WHERE email = ?'
+      ).bind(email).first()
+
+      if (!utente) return erroreGenerico()
+      if (!utente.password_hash) return json({ errore: 'Questo account usa il login Google — usa "Accedi con Google"' }, 400)
+
+      const corretta = await verificaPassword(password, utente.password_hash, utente.password_salt)
+      if (!corretta) return erroreGenerico()
+
+      const token = await firmaSessione(utente.id, env.SESSION_SECRET)
+      const headers = new Headers({ 'Content-Type': 'application/json' })
+      headers.append('Set-Cookie', cookieSessione(token, DURATA_SESSIONE_SECONDI))
+      return new Response(JSON.stringify({ ok: true }), { headers })
     }
 
     // POST /api/auth/logout — cancella il cookie di sessione

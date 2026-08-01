@@ -7,7 +7,12 @@ async function richiesta(percorso, opzioni = {}) {
     ...opzioni,
     headers: opzioni.body ? { 'Content-Type': 'application/json', ...opzioni.headers } : opzioni.headers,
   })
-  if (!res.ok) throw new Error(`Errore ${res.status}`)
+  if (!res.ok) {
+    // Se il server ha risposto con un messaggio specifico (es. "Email o
+    // password non corretti"), lo usiamo — altrimenti un errore generico.
+    const corpo = await res.json().catch(() => null)
+    throw new Error(corpo?.errore || `Errore ${res.status}`)
+  }
   return res.json()
 }
 
@@ -15,6 +20,14 @@ async function richiesta(percorso, opzioni = {}) {
 
 export function urlLogin() {
   return '/api/auth/login'
+}
+
+export function registrati(email, password, nome) {
+  return richiesta('/api/auth/registrati', { method: 'POST', body: JSON.stringify({ email, password, nome }) })
+}
+
+export function accedi(email, password) {
+  return richiesta('/api/auth/accedi', { method: 'POST', body: JSON.stringify({ email, password }) })
 }
 
 export function fetchUtenteCorrente() {
