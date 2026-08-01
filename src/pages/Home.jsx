@@ -13,6 +13,7 @@ import {
 import './Home.css'
 import { useNavigate } from 'react-router-dom'
 import FormViaggio from '../components/FormViaggio'
+import ChatNuovoViaggio from '../components/ChatNuovoViaggio'
 import { creaViaggio, modificaViaggio, eliminaViaggio } from '../api/client'
 import { etichettaStato } from '../utils/stato'
 import { useUtente } from '../contesto/UtenteContesto'
@@ -50,6 +51,7 @@ function Home() {
   const [loadingLista, setLoadingLista] = useState(true)
   const [errore, setErrore] = useState(null)
   const [loadingDettaglio, setLoadingDettaglio] = useState(false)
+  const [chatNuovo, setChatNuovo] = useState(false)
   const [modaleForm, setModaleForm] = useState(false)
   const [viaggioInModifica, setViaggioInModifica] = useState(null)
   const navigate = useNavigate()
@@ -248,12 +250,27 @@ function Home() {
 
   function apriNuovoViaggio() {
     setDrawerAperto(false)
+    setChatNuovo(true)
+  }
+
+  // Via di fuga dalla chat: il form di sempre.
+  function apriFormClassico() {
+    setChatNuovo(false)
     if (isMobile()) {
       navigate('/modifica/nuovo')
     } else {
       setViaggioInModifica(null)
       setModaleForm(true)
     }
+  }
+
+  // Bozza creata dalla chat: chiude, ricarica la lista e la apre.
+  async function creatoDaChat(id) {
+    setChatNuovo(false)
+    const lista = await fetchViagggi()
+    setViagggi(lista)
+    const nuovo = lista.find(v => v.id === id)
+    if (nuovo) selezionaViaggio(nuovo)
   }
 
   function apriModificaViaggio(e, viaggio) {
@@ -544,6 +561,19 @@ function Home() {
           </div>
         </div>
       )}
+    {/* MODALE CHAT NUOVO VIAGGIO */}
+    {chatNuovo && (
+      <div className="modale-overlay" onClick={() => setChatNuovo(false)}>
+        <div className="modale modale--form" onClick={e => e.stopPropagation()}>
+          <ChatNuovoViaggio
+            onFormClassico={apriFormClassico}
+            onCreato={creatoDaChat}
+            onChiudi={() => setChatNuovo(false)}
+          />
+        </div>
+      </div>
+    )}
+
     {/* MODALE FORM */}
     {modaleForm && (
       <div className="modale-overlay" onClick={() => setModaleForm(false)}>
