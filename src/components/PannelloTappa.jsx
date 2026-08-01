@@ -214,6 +214,7 @@ function PannelloTappa({
                   hotel={bozza || {}}
                   onCambia={setBozza}
                   apertoDiDefault
+                  centroIniziale={tappa.lat && tappa.lng ? [tappa.lat, tappa.lng] : null}
                 />
                 {errore && <p className="pannello__errore">{errore}</p>}
                 <button
@@ -293,6 +294,7 @@ function PannelloTappa({
                     trasporto={bozza || {}}
                     onCambia={setBozza}
                     direzione="arrivo"
+                    centroIniziale={tappa.lat && tappa.lng ? [tappa.lat, tappa.lng] : null}
                     apertoDiDefault
                   />
                   {errore && <p className="pannello__errore">{errore}</p>}
@@ -322,6 +324,7 @@ function PannelloTappa({
                     trasporto={bozza || {}}
                     onCambia={setBozza}
                     direzione="partenza"
+                    centroIniziale={tappa.lat && tappa.lng ? [tappa.lat, tappa.lng] : null}
                     apertoDiDefault
                   />
                   {errore && <p className="pannello__errore">{errore}</p>}
@@ -397,7 +400,7 @@ function PannelloTappa({
                     {giorno.attivita.map((att) => (
                       attivitaInModifica === att.id ? (
                         <div key={att.id} className="pannello__attivita-form">
-                          <AttivitaForm attivita={bozzaAttivita} onCambia={setBozzaAttivita} />
+                          <AttivitaForm attivita={bozzaAttivita} onCambia={setBozzaAttivita} centroIniziale={tappa.lat && tappa.lng ? [tappa.lat, tappa.lng] : null} />
                           {erroreAttivita && <p className="pannello__errore">{erroreAttivita}</p>}
                           <div className="pannello__giorno-azioni">
                             <button className="pannello__modifica-btn" onClick={() => rimuoviAttivita(att.id)}>🗑 Elimina</button>
@@ -442,7 +445,7 @@ function PannelloTappa({
 
                   {attivitaInModifica === 'nuova' ? (
                     <div className="pannello__attivita-form">
-                      <AttivitaForm attivita={bozzaAttivita} onCambia={setBozzaAttivita} />
+                      <AttivitaForm attivita={bozzaAttivita} onCambia={setBozzaAttivita} centroIniziale={tappa.lat && tappa.lng ? [tappa.lat, tappa.lng] : null} />
                       {erroreAttivita && <p className="pannello__errore">{erroreAttivita}</p>}
                       <div className="pannello__giorno-azioni">
                         <button className="pannello__modifica-btn" onClick={() => setAttivitaInModifica(null)}>Annulla</button>

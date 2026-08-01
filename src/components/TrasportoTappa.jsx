@@ -18,7 +18,7 @@ function etichettaMezzo(t) {
   return t.mezzo === 'altro' ? (t.mezzo_altro || 'Altro') : (voce?.label || t.mezzo)
 }
 
-function TrasportoTappa({ trasporto, onCambia, direzione, apertoDiDefault = false }) {
+function TrasportoTappa({ trasporto, onCambia, direzione, apertoDiDefault = false, centroIniziale = null }) {
   const [espanso, setEspanso]     = useState(apertoDiDefault)
   const [linkInput, setLinkInput] = useState('')
 
@@ -102,7 +102,7 @@ function TrasportoTappa({ trasporto, onCambia, direzione, apertoDiDefault = fals
           <p className="form-viaggio__label form-viaggio__label--small">
             Posizione stazione/aeroporto (facoltativa)
           </p>
-          <RicercaLuogo onSeleziona={daRicerca} />
+          <RicercaLuogo onSeleziona={daRicerca} centroIniziale={centroIniziale} />
 
           <div className="form-viaggio__riga-link">
             <input

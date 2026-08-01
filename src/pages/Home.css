@@ -988,6 +988,64 @@
   color: var(--text-muted);
 }
 
+.ricerca-luogo__modalita {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.ricerca-luogo__modalita-btn {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.ricerca-luogo__modalita-btn--attiva {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.ricerca-luogo__esplora-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+
+.ricerca-luogo__cerca-qui {
+  padding: 0.4rem 0.75rem;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.ricerca-luogo__cerca-qui:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ricerca-luogo__esplora-conteggio {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.ricerca-luogo__esplora-errore {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: #b5451b;
+}
+
 .ricerca-luogo__popup {
   display: flex;
   flex-direction: column;

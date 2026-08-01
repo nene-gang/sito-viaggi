@@ -11,7 +11,7 @@ export const TIPI_ATTIVITA = [
   { valore: 'altro', label: 'Altro' },
 ]
 
-function AttivitaForm({ attivita, onCambia }) {
+function AttivitaForm({ attivita, onCambia, centroIniziale = null }) {
   const [linkMappaInput, setLinkMappaInput] = useState('')
 
   function aggiorna(campo, valore) {
@@ -82,7 +82,7 @@ function AttivitaForm({ attivita, onCambia }) {
         </div>
       ) : (
         <>
-          <RicercaLuogo onSeleziona={daRicerca} />
+          <RicercaLuogo onSeleziona={daRicerca} centroIniziale={centroIniziale} />
           <div className="form-viaggio__riga-link">
             <input
               className="form-viaggio__input"

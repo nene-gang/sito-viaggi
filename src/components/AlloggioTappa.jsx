@@ -4,7 +4,7 @@ import { estraiCoordDaLink } from '../utils/luogo'
 
 export const HOTEL_VUOTO = { nome: '', lat: '', lng: '', indirizzo: '', link: '', link_prenotazione: '', costo: '', prenotazione: '', note: '' }
 
-function AlloggioTappa({ hotel, onCambia, apertoDiDefault = false }) {
+function AlloggioTappa({ hotel, onCambia, apertoDiDefault = false, centroIniziale = null }) {
   const [espanso, setEspanso]     = useState(apertoDiDefault)
   const [linkInput, setLinkInput] = useState('')
 
@@ -53,7 +53,7 @@ function AlloggioTappa({ hotel, onCambia, apertoDiDefault = false }) {
 
       {espanso && (
         <div className="form-viaggio__alloggio-corpo">
-          <RicercaLuogo onSeleziona={daRicerca} />
+          <RicercaLuogo onSeleziona={daRicerca} centroIniziale={centroIniziale} />
 
           <div className="form-viaggio__riga-link">
             <input
