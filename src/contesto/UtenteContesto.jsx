@@ -23,22 +23,23 @@ export function UtenteProvider({ children }) {
 
   async function logout() {
     await logoutApi()
-    setUtente(null)
+    window.location.reload()
   }
 
   // Dopo la registrazione/login nativo il server ha già creato la sessione
-  // (cookie impostato nella risposta), quindi basta ricaricare "chi sono"
-  // invece di rifare tutto il giro come per Google.
+  // (cookie impostato nella risposta). Ricarichiamo la pagina invece di
+  // limitarci ad aggiornare lo stato: è lo stesso identico comportamento
+  // che ha già il login Google (redirect completo), e garantisce che ogni
+  // componente riparta da zero con la sessione valida — evita che pagine
+  // già montate prima del login restino con dati/errori vecchi.
   async function registrati(email, password, nome) {
     await registratiApi(email, password, nome)
-    const dati = await fetchUtenteCorrente()
-    setUtente(dati.utente)
+    window.location.reload()
   }
 
   async function accedi(email, password) {
     await accediApi(email, password)
-    const dati = await fetchUtenteCorrente()
-    setUtente(dati.utente)
+    window.location.reload()
   }
 
   return (
