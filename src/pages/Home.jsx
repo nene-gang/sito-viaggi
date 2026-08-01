@@ -4,6 +4,7 @@ import PannelloTappa from '../components/PannelloTappa'
 import TimelineViaggio from './TimelineViaggio'
 import Statistiche from './Statistiche'
 import Amici from './Amici'
+import Sfide from './Sfide'
 import {
   fetchViagggi, fetchViaggio, aggiornaChecklist, aggiornaTappa,
   creaGiorno, eliminaGiorno, creaAttivita, modificaAttivita, eliminaAttivita,
@@ -472,6 +473,8 @@ function Home() {
 
         {sezioneAttiva === 'statistiche' ? (
           <Statistiche amicoIniziale={amicoWandexIniziale} />
+        ) : sezioneAttiva === 'sfide' ? (
+          <Sfide />
         ) : sezioneAttiva === 'amici' ? (
           <Amici onConfrontaWandex={amicoId => {
             setAmicoWandexIniziale(amicoId)
