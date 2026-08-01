@@ -161,6 +161,75 @@ async function sincronizzaChecklist(env, attivitaId, viaggioId, aggiungiChecklis
   }
 }
 
+// ---------------------------------------------------------------------------
+// Proposta di viaggio da testo libero (Workers AI)
+// ---------------------------------------------------------------------------
+
+const MODELLO_PROPOSTA_DEFAULT = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
+const LIMITE_TESTO_PROPOSTA = 20000
+
+// Schema volutamente ridotto: in questa prima versione estraiamo solo viaggio
+// e tappe. Niente lat/lng — le coordinate le mette il geocoder, non il modello.
+const SCHEMA_PROPOSTA = {
+  type: 'object',
+  properties: {
+    titolo: { type: 'string', description: 'Titolo breve del viaggio' },
+    data_inizio: { type: 'string', description: 'Data di inizio in formato ISO AAAA-MM-GG, stringa vuota se assente' },
+    data_fine: { type: 'string', description: 'Data di fine in formato ISO AAAA-MM-GG, stringa vuota se assente' },
+    descrizione: { type: 'string', description: 'Una o due frasi di sintesi, stringa vuota se non ricavabile' },
+    tappe: {
+      type: 'array',
+      description: 'Le località in cui si pernotta o si sosta, in ordine cronologico',
+      items: {
+        type: 'object',
+        properties: {
+          nome: { type: 'string', description: 'Nome della città o località' },
+          paese: { type: 'string', description: 'Nome del paese in italiano' },
+          data_arrivo: { type: 'string', description: 'Data di arrivo ISO AAAA-MM-GG, stringa vuota se assente' },
+          data_partenza: { type: 'string', description: 'Data di partenza ISO AAAA-MM-GG, stringa vuota se assente' },
+          notti: { type: 'number', description: 'Numero di notti, 0 se non ricavabile' },
+          incerta: { type: 'boolean', description: 'true se qualche dato di questa tappa è stato dedotto e non letto esplicitamente' },
+        },
+        required: ['nome', 'paese', 'data_arrivo', 'data_partenza', 'notti', 'incerta'],
+      },
+    },
+  },
+  required: ['titolo', 'data_inizio', 'data_fine', 'descrizione', 'tappe'],
+}
+
+const PROMPT_PROPOSTA = [
+  'Sei un assistente che trasforma testi di viaggio (mail di conferma, itinerari, appunti, tabelle)',
+  'in dati strutturati. Rispondi esclusivamente con un oggetto JSON conforme allo schema richiesto.',
+  '',
+  'Regole non negoziabili:',
+  '- Non inventare NIENTE. Se un dato non è nel testo, lascia la stringa vuota o 0.',
+  '- Non aggiungere località, hotel o date che non compaiono nel testo.',
+  '- Le date vanno sempre in formato ISO AAAA-MM-GG.',
+  '- Se una data è ambigua (es. 03/04 può essere 3 aprile o 4 marzo), scegli il formato giorno/mese',
+  '  e segna la tappa con incerta = true.',
+  '- Se l\'anno non compare da nessuna parte, lascia le date vuote invece di indovinarlo.',
+  '- Una tappa è una località dove si pernotta o si sosta, non ogni singolo spostamento.',
+  '- Metti le tappe in ordine cronologico.',
+].join('\n')
+
+// Alcuni modelli ignorano la JSON mode e rispondono con testo attorno al JSON
+// (o dentro un blocco markdown). Qui proviamo a recuperarlo comunque.
+function estraiJson(testo) {
+  if (!testo) return null
+  try {
+    return JSON.parse(testo)
+  } catch {
+    const inizio = testo.indexOf('{')
+    const fine = testo.lastIndexOf('}')
+    if (inizio === -1 || fine === -1 || fine <= inizio) return null
+    try {
+      return JSON.parse(testo.slice(inizio, fine + 1))
+    } catch {
+      return null
+    }
+  }
+}
+
 async function sonoAmici(env, utenteA, utenteB) {
   const riga = await env.sito_viaggi_db.prepare(
     `SELECT id FROM amicizie WHERE stato = 'accettata'
@@ -591,6 +660,68 @@ export async function onRequest(context) {
       }
 
       return json({ ok: true, id: nuovoId })
+    }
+
+    // POST /api/viaggi/proponi — trasforma un testo libero in una bozza di viaggio.
+    // NON scrive niente sul database: restituisce solo una proposta che il
+    // frontend mostrerà all'utente per la revisione.
+    if (request.method === 'POST' && path === '/api/viaggi/proponi') {
+      if (!userId) return nonAutorizzato()
+
+      if (!env.AI) {
+        return json({ errore: 'Binding AI non configurato sul progetto Pages' }, 500)
+      }
+
+      const body = await request.json()
+      const testo = (body.testo || '').trim()
+      const modello = body.modello || MODELLO_PROPOSTA_DEFAULT
+
+      if (!testo) return json({ errore: 'Testo mancante' }, 400)
+      if (testo.length > LIMITE_TESTO_PROPOSTA) {
+        return json({ errore: `Testo troppo lungo (max ${LIMITE_TESTO_PROPOSTA} caratteri)` }, 400)
+      }
+
+      const inizio = Date.now()
+      let risposta
+      try {
+        risposta = await env.AI.run(modello, {
+          messages: [
+            { role: 'system', content: PROMPT_PROPOSTA },
+            { role: 'user', content: testo },
+          ],
+          response_format: {
+            type: 'json_schema',
+            json_schema: SCHEMA_PROPOSTA,
+          },
+          max_tokens: 2048,
+        })
+      } catch (err) {
+        return json({ errore: `Chiamata al modello fallita: ${err.message}`, modello }, 502)
+      }
+
+      const durata_ms = Date.now() - inizio
+
+      // A seconda del modello la risposta arriva come oggetto già strutturato
+      // (JSON mode rispettata) oppure come stringa da parsare a mano.
+      let proposta = null
+      let grezzo = null
+
+      if (risposta && typeof risposta.response === 'object' && risposta.response !== null) {
+        proposta = risposta.response
+      } else {
+        grezzo = typeof risposta?.response === 'string' ? risposta.response : JSON.stringify(risposta)
+        proposta = estraiJson(grezzo)
+      }
+
+      return json({
+        ok: proposta !== null,
+        modello,
+        durata_ms,
+        uso: risposta?.usage || null,
+        proposta,
+        // Presente solo se il parsing è fallito: serve a capire cosa ha risposto
+        grezzo: proposta === null ? grezzo : undefined,
+      })
     }
 
     // PUT /api/viaggi/:id — modifica viaggio esistente
