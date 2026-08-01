@@ -123,6 +123,15 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
             ))}
           </div>
 
+          {inConfronto && (
+            <div className="tracker__legenda">
+              <span><span className="tracker__pallino" style={{ background: colore }} /> Solo tu</span>
+              <span><span className="tracker__pallino" style={{ background: '#a855f7' }} /> Solo {nomeAmico || 'amico'}</span>
+              <span><span className="tracker__pallino" style={{ background: '#d4af37' }} /> Entrambi</span>
+              <span><span className="tracker__pallino" style={{ background: '#c8c4bc' }} /> Nessuno</span>
+            </div>
+          )}
+
           {vista === 'mappa' ? (
             <MappaWandex
               items={items}
@@ -136,14 +145,6 @@ function Tracker({ titolo, icona, colore, items, visitatiManuali, visitatiAuto, 
             />
           ) : (
           <>
-          {inConfronto && (
-            <div className="tracker__legenda">
-              <span><span className="tracker__pallino" style={{ background: colore }} /> Solo tu</span>
-              <span><span className="tracker__pallino" style={{ background: '#a855f7' }} /> Solo {nomeAmico || 'amico'}</span>
-              <span><span className="tracker__pallino" style={{ background: '#d4af37' }} /> Entrambi</span>
-              <span><span className="tracker__pallino" style={{ background: '#c8c4bc' }} /> Nessuno</span>
-            </div>
-          )}
           <input
             className="tracker__search"
             placeholder="Cerca..."
