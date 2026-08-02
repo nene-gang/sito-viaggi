@@ -40,6 +40,13 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
   const [salvando, setSalvando] = useState(false)
   const [messaggioAttesa, setMessaggioAttesa] = useState(MESSAGGI_ATTESA[0])
 
+  // La chat si chiude solo dalla ✕, e se c'è del lavoro in corso chiede conferma.
+  function chiediChiusura() {
+    const inCorso = bozza !== null || testo.trim() !== ''
+    if (inCorso && !window.confirm('Chiudere senza salvare? Quello che hai inserito andrà perso.')) return
+    onChiudi()
+  }
+
   // --- Ramo iniziale ------------------------------------------------------
 
   function scegli(opzione, etichetta) {
@@ -215,7 +222,7 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
 
   return (
     <div className="chatnv">
-      <button className="chatnv__chiudi" onClick={onChiudi}>✕</button>
+      <button className="chatnv__chiudi" onClick={chiediChiusura}>✕</button>
 
       <div className="chatnv__flusso">
 

@@ -563,7 +563,7 @@ function Home() {
       )}
     {/* MODALE CHAT NUOVO VIAGGIO */}
     {chatNuovo && (
-      <div className="modale-overlay" onClick={() => setChatNuovo(false)}>
+      <div className="modale-overlay">
         <div className="modale modale--form" onClick={e => e.stopPropagation()}>
           <ChatNuovoViaggio
             onFormClassico={apriFormClassico}

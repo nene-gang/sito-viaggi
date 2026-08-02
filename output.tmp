@@ -1,0 +1,5 @@
+scritto: src/components/ChatNuovoViaggio.jsx
+scritto: src/pages/Home.jsx
+
+VERIFICA OK — conferma di chiusura presente.
+Ora: git add . && git commit -m "chat: niente chiusura al clic fuori" && git push
