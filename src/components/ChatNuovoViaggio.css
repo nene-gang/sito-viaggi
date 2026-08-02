@@ -342,3 +342,20 @@
     flex-direction: column;
   }
 }
+
+/* Evidenza sulle novità portate dall'ultima fonte */
+
+.chatnv__tappa--novita {
+  background: var(--accent-soft);
+}
+
+.chatnv__badge {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}

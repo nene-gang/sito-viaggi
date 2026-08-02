@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { creaViaggio } from '../api/client'
 import './ChatNuovoViaggio.css'
 
@@ -19,11 +19,37 @@ const MESSAGGI_ATTESA = [
   'Ancora un momento…',
 ]
 
+// Campi di una tappa che una fonte successiva può riempire se sono vuoti.
+const CAMPI_UNIBILI = [
+  'paese', 'data_arrivo', 'data_partenza',
+  'alloggio_nome', 'alloggio_indirizzo', 'alloggio_riferimento',
+]
+
+const ETICHETTE = {
+  paese: 'paese',
+  data_arrivo: 'data di arrivo',
+  data_partenza: 'data di partenza',
+  alloggio_nome: 'alloggio',
+  alloggio_indirizzo: 'indirizzo alloggio',
+  alloggio_riferimento: 'riferimento alloggio',
+}
+
 function titoloDaTappe(tappe) {
   if (!tappe || tappe.length === 0) return 'Nuovo viaggio'
   if (tappe.length === 1) return tappe[0].nome
   if (tappe.length === 2) return `${tappe[0].nome} e ${tappe[1].nome}`
   return `${tappe[0].nome} e altre ${tappe.length - 1} tappe`
+}
+
+// Confronto tra nomi di località: senza accenti, maiuscole e spazi doppi.
+function chiaveNome(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().trim().replace(/\s+/g, ' ')
+}
+
+function giorniTra(a, b) {
+  return Math.round((Date.parse(b) - Date.parse(a)) / 86400000)
 }
 
 // Nominatim chiede di non superare una richiesta al secondo.
@@ -35,10 +61,16 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
   const [testo, setTesto] = useState('')
   const [avvisi, setAvvisi] = useState([])
   const [bozza, setBozza] = useState(null)
-  const [geo, setGeo] = useState({})       // indice tappa -> { stato, candidati }
+  const [fonti, setFonti] = useState(0)
+  const [geo, setGeo] = useState({})       // id tappa -> { stato, candidati }
   const [errore, setErrore] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [messaggioAttesa, setMessaggioAttesa] = useState(MESSAGGI_ATTESA[0])
+
+  // Id stabile per tappa: gli indici cambiano quando si riordina dopo una
+  // fusione, e lo stato del geocoding resterebbe agganciato alla tappa sbagliata.
+  const contatoreId = useRef(0)
+  const nuovoId = () => `t${++contatoreId.current}`
 
   // La chat si chiude solo dalla ✕, e se c'è del lavoro in corso chiede conferma.
   function chiediChiusura() {
@@ -81,20 +113,16 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
         throw new Error(dati.errore || 'Non sono riuscito a leggere il testo')
       }
 
-      const p = dati.proposta
-      const tappe = (p.tappe || []).map(t => ({ ...t, lat: null, lng: null, paese_iso: '' }))
+      const risultato = bozza
+        ? fondi(bozza, dati.proposta)
+        : primaBozza(dati.proposta)
 
-      setAvvisi(dati.avvisi || [])
-      setBozza({
-        titolo: p.titolo || titoloDaTappe(tappe),
-        data_inizio: p.data_inizio || '',
-        data_fine: p.data_fine || '',
-        descrizione: p.descrizione || '',
-        tappe,
-        tratte: p.tratte || [],
-      })
+      setBozza(risultato.bozza)
+      setAvvisi([...(dati.avvisi || []), ...risultato.avvisi])
+      setFonti(n => n + 1)
+      setTesto('')
       setFase('anteprima')
-      geocodificaTutte(tappe)
+      geocodificaMancanti(risultato.bozza.tappe)
     } catch (e) {
       setErrore(e.message)
       setFase('incolla')
@@ -103,17 +131,126 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
     }
   }
 
-  // --- Coordinate: mai dal modello, sempre dal geocoder -------------------
-
-  async function geocodificaTutte(tappe) {
-    for (let i = 0; i < tappe.length; i++) {
-      if (i > 0) await attendi(1100)
-      await cercaLuogo(i, `${tappe[i].nome}${tappe[i].paese ? ', ' + tappe[i].paese : ''}`)
+  function primaBozza(p) {
+    const tappe = (p.tappe || []).map(t => ({
+      ...t, _id: nuovoId(), lat: null, lng: null, paese_iso: '', novita: false,
+    }))
+    return {
+      bozza: {
+        titolo: p.titolo || titoloDaTappe(tappe),
+        data_inizio: p.data_inizio || '',
+        data_fine: p.data_fine || '',
+        descrizione: p.descrizione || '',
+        tappe,
+        tratte: p.tratte || [],
+      },
+      avvisi: [],
     }
   }
 
-  async function cercaLuogo(indice, query) {
-    setGeo(g => ({ ...g, [indice]: { stato: 'cerca', candidati: [] } }))
+  // --- Fusione di una nuova fonte sulla bozza esistente --------------------
+  // Regola: vince sempre il dato già presente. La fonte nuova riempie solo i
+  // campi vuoti; le discordanze finiscono negli avvisi, non sovrascrivono.
+
+  function fondi(corrente, p) {
+    const avvisiFusione = []
+    const tappe = corrente.tappe.map(t => ({ ...t, novita: false }))
+
+    for (const nuova of p.tappe || []) {
+      const indice = tappe.findIndex(t => chiaveNome(t.nome) === chiaveNome(nuova.nome))
+
+      if (indice === -1) {
+        tappe.push({
+          ...nuova, _id: nuovoId(), lat: null, lng: null, paese_iso: '', novita: true,
+        })
+        avvisiFusione.push(`Aggiunta la tappa ${nuova.nome}`)
+        continue
+      }
+
+      const esistente = tappe[indice]
+      let modificata = false
+
+      for (const campo of CAMPI_UNIBILI) {
+        const valoreNuovo = nuova[campo]
+        if (!valoreNuovo) continue
+
+        if (!esistente[campo]) {
+          esistente[campo] = valoreNuovo
+          modificata = true
+          avvisiFusione.push(`${esistente.nome}: aggiunto ${ETICHETTE[campo]}`)
+        } else if (String(esistente[campo]) !== String(valoreNuovo)) {
+          avvisiFusione.push(
+            `${esistente.nome}: questa fonte dice "${valoreNuovo}" come ${ETICHETTE[campo]}, ho tenuto "${esistente[campo]}"`
+          )
+        }
+      }
+
+      if (modificata) esistente.novita = true
+    }
+
+    // Notti ricalcolate dalle date, mai ereditate dalla fonte.
+    for (const t of tappe) {
+      if (t.data_arrivo && t.data_partenza) {
+        const n = giorniTra(t.data_arrivo, t.data_partenza)
+        if (n >= 0) t.notti = n
+      }
+    }
+
+    // Ordine cronologico: le tappe senza data restano in fondo.
+    tappe.sort((a, b) => {
+      if (!a.data_arrivo) return 1
+      if (!b.data_arrivo) return -1
+      return a.data_arrivo.localeCompare(b.data_arrivo)
+    })
+
+    // Tratte: si accodano se non ci sono già.
+    const tratte = [...(corrente.tratte || [])]
+    for (const nt of p.tratte || []) {
+      const gia = tratte.some(t =>
+        chiaveNome(t.da) === chiaveNome(nt.da) &&
+        chiaveNome(t.a) === chiaveNome(nt.a) &&
+        (t.data || '') === (nt.data || '')
+      )
+      if (!gia) {
+        tratte.push(nt)
+        avvisiFusione.push(`Aggiunto lo spostamento ${nt.da} → ${nt.a}`)
+      }
+    }
+
+    // Date del viaggio ricalcolate su tutto quello che abbiamo.
+    const date = []
+    for (const t of tappe) {
+      if (t.data_arrivo) date.push(t.data_arrivo)
+      if (t.data_partenza) date.push(t.data_partenza)
+    }
+    for (const t of tratte) if (t.data) date.push(t.data)
+    date.sort()
+
+    return {
+      bozza: {
+        ...corrente,
+        tappe,
+        tratte,
+        data_inizio: date[0] || corrente.data_inizio,
+        data_fine: date[date.length - 1] || corrente.data_fine,
+      },
+      avvisi: avvisiFusione,
+    }
+  }
+
+  // --- Coordinate: mai dal modello, sempre dal geocoder -------------------
+
+  async function geocodificaMancanti(tappe) {
+    const daFare = tappe.filter(t => t.lat == null)
+    for (let i = 0; i < daFare.length; i++) {
+      if (i > 0) await attendi(1100)
+      const t = daFare[i]
+      await cercaLuogo(t._id, `${t.nome}${t.paese ? ', ' + t.paese : ''}`)
+    }
+  }
+
+  async function cercaLuogo(id, query) {
+    setGeo(g => ({ ...g, [id]: { stato: 'cerca', candidati: [] } }))
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
@@ -121,20 +258,20 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
       )
       const risultati = await res.json()
       if (!risultati.length) {
-        setGeo(g => ({ ...g, [indice]: { stato: 'nessuno', candidati: [] } }))
+        setGeo(g => ({ ...g, [id]: { stato: 'nessuno', candidati: [] } }))
         return
       }
-      setGeo(g => ({ ...g, [indice]: { stato: 'ok', candidati: risultati } }))
-      applicaLuogo(indice, risultati[0])
+      setGeo(g => ({ ...g, [id]: { stato: 'ok', candidati: risultati } }))
+      applicaLuogo(id, risultati[0])
     } catch {
-      setGeo(g => ({ ...g, [indice]: { stato: 'nessuno', candidati: [] } }))
+      setGeo(g => ({ ...g, [id]: { stato: 'nessuno', candidati: [] } }))
     }
   }
 
-  function applicaLuogo(indice, risultato) {
+  function applicaLuogo(id, risultato) {
     setBozza(b => ({
       ...b,
-      tappe: b.tappe.map((t, i) => i === indice ? {
+      tappe: b.tappe.map(t => t._id === id ? {
         ...t,
         lat: parseFloat(risultato.lat),
         lng: parseFloat(risultato.lon),
@@ -143,24 +280,28 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
     }))
   }
 
-  function aggiornaTappa(indice, campo, valore) {
+  function aggiornaTappa(id, campo, valore) {
     setBozza(b => ({
       ...b,
-      tappe: b.tappe.map((t, i) => i === indice ? { ...t, [campo]: valore } : t),
+      tappe: b.tappe.map(t => t._id === id ? { ...t, [campo]: valore } : t),
     }))
   }
 
-  function rimuoviTappa(indice) {
-    setBozza(b => ({ ...b, tappe: b.tappe.filter((_, i) => i !== indice) }))
+  function rimuoviTappa(id) {
+    setBozza(b => ({ ...b, tappe: b.tappe.filter(t => t._id !== id) }))
+  }
+
+  function aggiungiFonte() {
+    setErrore(null)
+    setTesto('')
+    setFase('incolla')
   }
 
   // --- Salvataggio come bozza --------------------------------------------
 
   // La tratta che arriva in una tappa diventa il suo trasporto_arrivo.
   function trasportoVerso(nomeTappa) {
-    const tratta = (bozza.tratte || []).find(
-      t => (t.a || '').toLowerCase() === (nomeTappa || '').toLowerCase()
-    )
+    const tratta = (bozza.tratte || []).find(t => chiaveNome(t.a) === chiaveNome(nomeTappa))
     if (!tratta) return null
 
     const mezzo = MAPPA_MEZZI[(tratta.mezzo || '').toLowerCase()] || 'altro'
@@ -268,8 +409,9 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
         {/* Ramo prenotazioni: incolla il testo */}
         {(fase === 'incolla' || fase === 'analisi') && (
           <div className="bolla bolla--sistema">
-            Incolla qui il testo: una mail di conferma, un itinerario, i tuoi appunti.
-            Va bene anche disordinato.
+            {fonti === 0
+              ? 'Incolla qui il testo: una mail di conferma, un itinerario, i tuoi appunti. Va bene anche disordinato.'
+              : `Incolla la fonte numero ${fonti + 1}: un'altra mail, un hotel, un treno. La aggiungo a quello che c'è già.`}
           </div>
         )}
 
@@ -286,9 +428,15 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
               <button className="chatnv__primario" onClick={analizza} disabled={!testo.trim()}>
                 Analizza
               </button>
-              <button className="chatnv__opzione-secondaria" onClick={onFormClassico}>
-                Form classico
-              </button>
+              {bozza ? (
+                <button className="chatnv__opzione-secondaria" onClick={() => setFase('anteprima')}>
+                  Torna all'anteprima
+                </button>
+              ) : (
+                <button className="chatnv__opzione-secondaria" onClick={onFormClassico}>
+                  Form classico
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -304,13 +452,14 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
         {fase === 'anteprima' && bozza && (
           <>
             <div className="bolla bolla--sistema">
-              Ecco cosa ho capito. Controlla e correggi quello che serve —
-              non salvo niente finché non me lo dici tu.
+              {fonti === 1
+                ? 'Ecco cosa ho capito. Controlla e correggi quello che serve — non salvo niente finché non me lo dici tu.'
+                : `Ho unito ${fonti} fonti. Le novità dell'ultima sono evidenziate.`}
             </div>
 
             {avvisi.length > 0 && (
               <div className="chatnv__avvisi">
-                <strong>Ho corretto o scartato alcuni dati:</strong>
+                <strong>Da controllare:</strong>
                 <ul>{avvisi.map((a, i) => <li key={i}>{a}</li>)}</ul>
               </div>
             )}
@@ -348,28 +497,32 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
                 <p className="chatnv__vuoto">Nessuna tappa trovata nel testo.</p>
               )}
 
-              {bozza.tappe.map((tappa, i) => (
-                <div key={i} className={`chatnv__tappa${tappa.incerta ? ' chatnv__tappa--incerta' : ''}`}>
+              {bozza.tappe.map(tappa => (
+                <div
+                  key={tappa._id}
+                  className={`chatnv__tappa${tappa.incerta ? ' chatnv__tappa--incerta' : ''}${tappa.novita ? ' chatnv__tappa--novita' : ''}`}
+                >
                   <div className="chatnv__tappa-testa">
                     <input
                       className="chatnv__tappa-nome"
                       value={tappa.nome}
-                      onChange={e => aggiornaTappa(i, 'nome', e.target.value)}
+                      onChange={e => aggiornaTappa(tappa._id, 'nome', e.target.value)}
                     />
-                    <button className="chatnv__rimuovi" onClick={() => rimuoviTappa(i)}>✕</button>
+                    {tappa.novita && <span className="chatnv__badge">nuovo</span>}
+                    <button className="chatnv__rimuovi" onClick={() => rimuoviTappa(tappa._id)}>✕</button>
                   </div>
 
                   <div className="chatnv__tappa-date">
                     <input
                       type="date"
                       value={tappa.data_arrivo || ''}
-                      onChange={e => aggiornaTappa(i, 'data_arrivo', e.target.value)}
+                      onChange={e => aggiornaTappa(tappa._id, 'data_arrivo', e.target.value)}
                     />
                     <span>→</span>
                     <input
                       type="date"
                       value={tappa.data_partenza || ''}
-                      onChange={e => aggiornaTappa(i, 'data_partenza', e.target.value)}
+                      onChange={e => aggiornaTappa(tappa._id, 'data_partenza', e.target.value)}
                     />
                     <span className="chatnv__notti">{tappa.notti || 0} notti</span>
                   </div>
@@ -380,19 +533,19 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
 
                   {/* Conferma del luogo: le coordinate arrivano da qui, non dal modello */}
                   <div className="chatnv__luogo">
-                    {geo[i]?.stato === 'cerca' && <span className="chatnv__luogo-cerca">cerco il luogo…</span>}
-                    {geo[i]?.stato === 'nessuno' && (
+                    {geo[tappa._id]?.stato === 'cerca' && <span className="chatnv__luogo-cerca">cerco il luogo…</span>}
+                    {geo[tappa._id]?.stato === 'nessuno' && (
                       <>
                         <span className="chatnv__luogo-ko">luogo non trovato</span>
-                        <button onClick={() => cercaLuogo(i, tappa.nome)}>riprova</button>
+                        <button onClick={() => cercaLuogo(tappa._id, tappa.nome)}>riprova</button>
                       </>
                     )}
-                    {geo[i]?.stato === 'ok' && (
+                    {geo[tappa._id]?.stato === 'ok' && (
                       <select
-                        value={geo[i].candidati.findIndex(c => parseFloat(c.lat) === tappa.lat)}
-                        onChange={e => applicaLuogo(i, geo[i].candidati[Number(e.target.value)])}
+                        value={geo[tappa._id].candidati.findIndex(c => parseFloat(c.lat) === tappa.lat)}
+                        onChange={e => applicaLuogo(tappa._id, geo[tappa._id].candidati[Number(e.target.value)])}
                       >
-                        {geo[i].candidati.map((c, k) => (
+                        {geo[tappa._id].candidati.map((c, k) => (
                           <option key={k} value={k}>{c.display_name}</option>
                         ))}
                       </select>
@@ -431,12 +584,16 @@ function ChatNuovoViaggio({ onFormClassico, onCreato, onChiudi }) {
                 </button>
                 <button
                   className="chatnv__opzione-secondaria"
-                  onClick={() => { setFase('incolla'); setBozza(null); setAvvisi([]) }}
+                  onClick={aggiungiFonte}
                   disabled={salvando}
                 >
-                  Ricomincia
+                  + Aggiungi un'altra fonte
                 </button>
               </div>
+
+              <p className="chatnv__nota">
+                {fonti === 1 ? '1 fonte caricata' : `${fonti} fonti caricate`}
+              </p>
             </div>
           </>
         )}
