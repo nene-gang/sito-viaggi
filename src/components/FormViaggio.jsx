@@ -8,6 +8,28 @@ import { HOTEL_VUOTO } from './AlloggioTappa'
 
 const TAPPA_VUOTA = { nome: '', lat: '', lng: '', paese_iso: '', ordine: 1, data_arrivo: '', data_partenza: '', notti: '', hotel: { ...HOTEL_VUOTO } }
 
+// Una tappa ha un numero di notti valido? Dal database arriva null, dal form
+// stringa vuota: entrambi vanno trattati come "non impostato".
+function haNotti(n) {
+  return n !== '' && n !== null && n !== undefined && !isNaN(n)
+}
+
+// Le tappe arrivano dal database con null nei campi vuoti, ma gli input
+// controllati di React vogliono stringhe.
+function normalizzaTappa(t) {
+  return {
+    ...t,
+    nome: t.nome || '',
+    lat: t.lat ?? '',
+    lng: t.lng ?? '',
+    paese_iso: t.paese_iso || '',
+    data_arrivo: t.data_arrivo || '',
+    data_partenza: t.data_partenza || '',
+    notti: haNotti(t.notti) ? t.notti : '',
+    hotel: { ...HOTEL_VUOTO, ...(t.hotel || {}) },
+  }
+}
+
 // Calcola le notti tra due date (YYYY-MM-DD). Torna '' se mancano dati o l'intervallo non è valido.
 function calcolaNotti(arrivo, partenza) {
   if (!arrivo || !partenza) return ''
@@ -38,7 +60,7 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla, onEliminato }) {
   const [dataFine,    setDataFine]    = useState(viaggio?.data_fine   || '')
   const [descrizione, setDescrizione] = useState(viaggio?.descrizione || '')
   const [tappe,       setTappe]       = useState(
-    viaggio?.tappe?.map(t => ({ ...t })) || []
+    viaggio?.tappe?.map(normalizzaTappa) || []
   )
   const [salvando,    setSalvando]    = useState(false)
   const [eliminando,  setEliminando]  = useState(false)
@@ -76,7 +98,7 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla, onEliminato }) {
       const nuova = { ...t, [campo]: valore }
 
       if (campo === 'data_arrivo') {
-        if (nuova.notti !== '') {
+        if (haNotti(nuova.notti)) {
           nuova.data_partenza = sommaGiorni(nuova.data_arrivo, nuova.notti)
         } else if (nuova.data_partenza) {
           nuova.notti = calcolaNotti(nuova.data_arrivo, nuova.data_partenza)
@@ -105,7 +127,7 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla, onEliminato }) {
 
         const successiva = nuove[i + 1]
         const nuovoArrivo = attuale.data_partenza
-        const nuovaPartenza = successiva.notti !== ''
+        const nuovaPartenza = haNotti(successiva.notti)
           ? sommaGiorni(nuovoArrivo, successiva.notti)
           : successiva.data_partenza
 
@@ -113,7 +135,7 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla, onEliminato }) {
           ...successiva,
           data_arrivo: nuovoArrivo,
           data_partenza: nuovaPartenza,
-          notti: successiva.notti !== '' ? successiva.notti : calcolaNotti(nuovoArrivo, nuovaPartenza),
+          notti: haNotti(successiva.notti) ? successiva.notti : calcolaNotti(nuovoArrivo, nuovaPartenza),
         }
       }
       return nuove
