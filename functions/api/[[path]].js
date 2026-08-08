@@ -608,8 +608,16 @@ export async function onRequest(context) {
 
       for (const viaggio of results) {
         const { results: tappe } = await env.sito_viaggi_db.prepare(
-          'SELECT id, nome, lat, lng, paese_iso, ordine, notti, data_arrivo FROM tappe WHERE viaggio_id = ? ORDER BY ordine'
+          'SELECT * FROM tappe WHERE viaggio_id = ? ORDER BY ordine'
         ).bind(viaggio.id).all()
+
+        // Come nel dettaglio: i campi JSON vanno restituiti già decodificati.
+        for (const tappa of tappe) {
+          tappa.hotel = JSON.parse(tappa.hotel || '{}')
+          tappa.trasporto_arrivo   = tappa.trasporto_arrivo   ? JSON.parse(tappa.trasporto_arrivo)   : null
+          tappa.trasporto_partenza = tappa.trasporto_partenza ? JSON.parse(tappa.trasporto_partenza) : null
+        }
+
         viaggio.tappe = tappe
       }
 
