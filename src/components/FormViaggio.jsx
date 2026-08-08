@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { creaViaggio, modificaViaggio, eliminaViaggio } from '../api/client'
 import { STATI_VIAGGIO } from '../utils/stato'
 import RicercaLuogo from './RicercaLuogo'
+import PannelloFonte from './PannelloFonte'
+import { fondiProposta, periodoDaTappe } from '../utils/fusioneFonti'
 import { HOTEL_VUOTO } from './AlloggioTappa'
 
 const TAPPA_VUOTA = { nome: '', lat: '', lng: '', paese_iso: '', ordine: 1, data_arrivo: '', data_partenza: '', notti: '', hotel: { ...HOTEL_VUOTO } }
@@ -41,6 +43,8 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla, onEliminato }) {
   const [salvando,    setSalvando]    = useState(false)
   const [eliminando,  setEliminando]  = useState(false)
   const [errore,      setErrore]      = useState(null)
+  const [fonteAperta, setFonteAperta] = useState(false)
+  const [avvisiFonte, setAvvisiFonte] = useState([])
 
   function aggiungiTappa(datiLuogo) {
     setTappe(prev => {
@@ -114,6 +118,19 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla, onEliminato }) {
       }
       return nuove
     })
+  }
+
+  // Testo incollato nel form: le tappe estratte si fondono con quelle presenti.
+  function applicaFonte(proposta, avvisiServer) {
+    const esito = fondiProposta(tappe, proposta)
+    setTappe(esito.tappe)
+    setAvvisiFonte([...avvisiServer, ...esito.avvisi])
+    setFonteAperta(false)
+
+    // Le date del viaggio si allargano, non si restringono.
+    const periodo = periodoDaTappe(esito.tappe, proposta.tratte || [])
+    if (periodo.inizio && (!dataInizio || periodo.inizio < dataInizio)) setDataInizio(periodo.inizio)
+    if (periodo.fine && (!dataFine || periodo.fine > dataFine)) setDataFine(periodo.fine)
   }
 
   function rimuoviTappa(indice) {
@@ -335,6 +352,31 @@ function FormViaggio({ viaggio, onSalvato, onAnnulla, onEliminato }) {
             })}
           </div>
         )}
+
+        {avvisiFonte.length > 0 && (
+          <div className="form-viaggio__avvisi">
+            <strong>Da controllare:</strong>
+            <ul>{avvisiFonte.map((a, i) => <li key={i}>{a}</li>)}</ul>
+            <button onClick={() => setAvvisiFonte([])}>ok, ho capito</button>
+          </div>
+        )}
+
+        <div className="form-viaggio__aggiungi-tappa">
+          {fonteAperta ? (
+            <PannelloFonte
+              onProposta={applicaFonte}
+              onAnnulla={() => setFonteAperta(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              className="form-viaggio__btn-fonte"
+              onClick={() => setFonteAperta(true)}
+            >
+              + Aggiungi da una mail o un testo
+            </button>
+          )}
+        </div>
 
         <div className="form-viaggio__aggiungi-tappa">
           <p className="form-viaggio__label form-viaggio__label--small">
